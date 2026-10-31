@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feed Hub</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 0 auto; padding: 20px 16px; background: #f6f7f5; color: #1f2a26; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .sub { color: #5d6b65; margin: 0 0 16px; }
+  .add { display: flex; gap: 8px; flex-wrap: wrap; }
+  .add input { flex: 1; min-width: 220px; padding: 10px; font: inherit; border: 1px solid #c9d3ce; border-radius: 6px; }
+  .add button { font: inherit; padding: 10px 16px; border: 0; border-radius: 6px; background: #2e7d5b; color: #fff; cursor: pointer; }
+  .add button:disabled { opacity: .6; cursor: default; }
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .tools button { font: inherit; font-size: 13px; padding: 6px 12px; border: 1px solid #c9d3ce; border-radius: 6px; background: #fff; color: #1f2a26; cursor: pointer; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 4px; cursor: pointer; }
+  .toggle select { font: inherit; font-size: 13px; padding: 4px 6px; border: 1px solid #c9d3ce; border-radius: 6px; background: #fff; }
+  .tools button:disabled { opacity: .6; cursor: default; }
+  .last { color: #5d6b65; font-size: 12px; align-self: center; }
+  .post.read { opacity: .55; }
+  .post.read .title::before { content: "Read · "; font-weight: 400; color: #5d6b65; }
+  .views { display: flex; align-items: center; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+  .view-btn { font: inherit; font-size: 13px; font-weight: 600; padding: 5px 12px; border: 1px solid #c9d3ce; border-radius: 6px; background: #fff; color: #1f2a26; cursor: pointer; }
+  .view-btn[aria-pressed="true"] { background: #2e7d5b; border-color: #2e7d5b; color: #fff; }
+  .post .preview { display: none; color: #3d4a44; font-size: 14px; margin-top: 4px; line-height: 1.4; }
+  .layout-list .post { padding: 10px 12px; margin-bottom: 0; border-radius: 0; border-width: 0 0 1px; background: transparent; }
+  .layout-list .post img { display: none; }
+  .layout-list .post .preview { display: block; }
+  .layout-list .post .title { font-size: 15px; }
+  /* Grid view (#31): picture tiles, 2 across on a phone, 4 on a computer */
+  body:has(#feeds.layout-grid) { max-width: 1100px; }
+  .layout-grid .postlist { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  @media (max-width: 700px) { .layout-grid .postlist { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
+  .layout-grid .post { flex-direction: column; gap: 6px; padding: 0 0 8px; margin: 0; overflow: hidden; position: relative; }
+  .layout-grid .post img, .layout-grid .post .noimg { width: 100%; border-radius: 0; }
+  .layout-grid .post .info { padding: 0 8px; }
+  .layout-grid .post .title { font-size: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .layout-grid .post .date { font-size: 12px; }
+  .layout-grid .save { position: absolute; top: 6px; right: 6px; }
+  .post .noimg { display: none; }
+  .layout-grid .post .noimg { display: flex; align-items: center; justify-content: center; aspect-ratio: 16/9; background: #dfe6e2; color: #5d6b65; font-size: 28px; font-weight: 700; }
+  /* Swipe view (#32): one post fills the screen, swipe up for the next */
+  body:has(#feeds.layout-swipe) { overflow: hidden; }
+  .layout-swipe .postlist { position: fixed; inset: 0; z-index: 50; overflow-y: auto; scroll-snap-type: y mandatory; background: #111; overscroll-behavior: contain; }
+  .layout-swipe .post { height: 100%; margin: 0; border: 0; border-radius: 0; background: #111; color: #f2f5f3; flex-direction: column; justify-content: center; align-items: center; gap: 14px; padding: 56px 20px 32px; scroll-snap-align: start; scroll-snap-stop: always; position: relative; box-sizing: border-box; }
+  .layout-swipe .post img, .layout-swipe .post .noimg { display: flex; width: 100%; max-width: 900px; max-height: 58vh; object-fit: contain; border-radius: 8px; background: #000; }
+  .layout-swipe .post .noimg { align-items: center; justify-content: center; aspect-ratio: 16/9; color: #9aa8a1; font-size: 64px; font-weight: 700; background: #1f2724; }
+  .layout-swipe .post .info { max-width: 700px; width: 100%; }
+  .layout-swipe .post .title { font-size: 20px; }
+  .layout-swipe .post .date { color: #9aa8a1; font-size: 14px; }
+  .layout-swipe .post .preview { display: block; color: #cfd8d3; font-size: 15px; }
+  .layout-swipe .save { position: absolute; top: 14px; right: 14px; }
+  .layout-swipe .post.read { opacity: 1; }
+  #swipeExit { display: none; }
+  #feeds.layout-swipe + #swipeExit { display: block; position: fixed; z-index: 60; top: 12px; left: 12px; font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border: 1px solid #444; border-radius: 999px; background: #222; color: #fff; cursor: pointer; }
+  .tabs { display: flex; gap: 4px; margin-top: 14px; border-bottom: 1px solid #d3dcd7; }
+  .tabs button { font: inherit; font-weight: 600; padding: 8px 14px; border: 0; border-bottom: 3px solid transparent; background: none; color: #5d6b65; cursor: pointer; }
+  .tabs button[aria-selected="true"] { color: #1f2a26; border-bottom-color: #2e7d5b; }
+  .post .info { flex: 1; min-width: 0; }
+  .save { font: inherit; font-size: 12px; align-self: flex-start; padding: 4px 10px; border: 1px solid #c9d3ce; border-radius: 999px; background: #fff; color: #1f2a26; cursor: pointer; flex-shrink: 0; }
+  .save.on { background: #2e7d5b; border-color: #2e7d5b; color: #fff; }
+  #status { min-height: 1.4em; margin: 10px 0; color: #5d6b65; }
+  #status.error { color: #a23b14; }
+  .folders { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
+  .folder { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border: 1px solid #c9d3ce; border-radius: 6px; background: #fff; color: #1f2a26; cursor: pointer; }
+  .folder.on { background: #1f2a26; border-color: #1f2a26; color: #fff; }
+  .pin { font: inherit; font-size: 12px; padding: 2px 8px; border: 1px solid #c9d3ce; border-radius: 999px; background: #fff; color: #1f2a26; cursor: pointer; }
+  .pin.on { background: #b5852a; border-color: #b5852a; color: #fff; }
+  .folder-pick { font: inherit; font-size: 12px; padding: 1px 2px; border: 1px solid #d3dcd7; border-radius: 6px; background: #f6f7f5; max-width: 120px; }
+  .following { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 14px; }
+  .following-label { color: #5d6b65; font-size: 13px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #d3dcd7; border-radius: 999px; padding: 3px 4px 3px 12px; font-size: 13px; font-weight: 600; }
+  .chip-error { border-color: #e2b39f; color: #a23b14; }
+  .remove { font: inherit; font-size: 12px; padding: 2px 8px; border: 1px solid #c9d3ce; border-radius: 999px; background: #fff; color: #a23b14; cursor: pointer; }
+  .remove:hover { border-color: #a23b14; }
+  .post { display: flex; gap: 12px; background: #fff; border: 1px solid #d3dcd7; border-radius: 8px; padding: 10px; margin-bottom: 8px; text-decoration: none; color: inherit; }
+  .post:hover { border-color: #2e7d5b; }
+  .post img { width: 140px; aspect-ratio: 16/9; object-fit: cover; border-radius: 4px; flex-shrink: 0; background: #e4e7e5; }
+  .post .title { font-weight: 700; }
+  .post .date { color: #5d6b65; font-size: 13px; margin-top: 4px; }
+  @media (max-width: 480px) { .post img { width: 100px; } }
+</style>
+</head>
+<body>
+<h1>Feed Hub</h1>
+<p class="sub">Everything you follow, in one place.</p>
+
+<form class="add" id="addForm">
+  <input id="link" type="text" placeholder="Paste a link to follow" autocomplete="off">
+  <button id="addBtn" type="submit">Add</button>
+</form>
+<div class="tools">
+  <button id="exportBtn" type="button">Export my feeds</button>
+  <button id="importBtn" type="button">Import feeds</button>
+  <input id="importFile" type="file" accept=".opml,.xml,text/xml" hidden>
+  <label class="toggle"><input id="hideRead" type="checkbox"> Hide read</label>
+  <label class="toggle">Sort
+    <select id="sortBy">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="source">By source</option>
+    </select>
+  </label>
+  <button id="refreshBtn" type="button">Refresh</button>
+  <span id="lastRefreshed" class="last"></span>
+</div>
+<div class="views" role="group" aria-label="View">
+  <span class="following-label">View:</span>
+  <button type="button" class="view-btn" data-layout="cards" aria-pressed="true">Cards</button>
+  <button type="button" class="view-btn" data-layout="list" aria-pressed="false">List</button>
+  <button type="button" class="view-btn" data-layout="grid" aria-pressed="false">Grid</button>
+  <button type="button" class="view-btn" data-layout="swipe" aria-pressed="false">Swipe</button>
+</div>
+<div class="tabs" role="tablist">
+  <button id="tabAll" type="button" role="tab" aria-selected="true">All</button>
+  <button id="tabSaved" type="button" role="tab" aria-selected="false">Saved</button>
+</div>
+<div id="status"></div>
+<div id="feeds"></div>
+<button id="swipeExit" type="button">Exit swipe</button>
+
+<script>
+// Dan's helper on Cloudflare (#8). Browsers can't read feed sites directly.
+const HELPER = "https://feedhub-helper.dan-brisco.workers.dev/?url=";
+
+const statusEl = document.getElementById("status");
+const feedsEl = document.getElementById("feeds");
+
+function setStatus(text, isError) {
+  statusEl.textContent = text;
+  statusEl.className = isError ? "error" : "";
+}
+
+async function getText(url) {
+  const res = await fetch(HELPER + encodeURIComponent(url));
+  if (!res.ok) throw new Error(friendlyError(await res.text()));
+  return res.text();
+}
+
+// Turn the helper's error codes into plain words.
+function friendlyError(msg) {
+  if (/\b(429|403|401)\b/.test(msg)) return "That site won't let Feed Hub in right now. Some big sites block feed readers. Try a different site, or try again later.";
+  if (/\b404\b/.test(msg)) return "That page wasn't found. Check the link and try again.";
+  if (/\b5\d\d\b/.test(msg) || /reach/i.test(msg)) return "Couldn't reach that site. It may be down. Try again in a few minutes.";
+  return msg || "Something went wrong. Try again.";
+}
+
+// Turn a YouTube channel link (@name, /channel/, /c/, /user/) into its feed link.
+async function youtubeFeedUrl(link) {
+  const id = link.match(/youtube\.com\/channel\/(UC[\w-]{22})/);
+  if (id) return "https://www.youtube.com/feeds/videos.xml?channel_id=" + id[1];
+  const html = await getText(link);
+  const rss = html.match(/https:\/\/www\.youtube\.com\/feeds\/videos\.xml\?channel_id=UC[\w-]{22}/);
+  if (rss) return rss[0];
+  const cid = html.match(/"(?:channelId|externalId)":"(UC[\w-]{22})"/);
+  if (cid) return "https://www.youtube.com/feeds/videos.xml?channel_id=" + cid[1];
+  throw new Error("Couldn't find that YouTube channel's feed.");
+}
+
+// A normal website link: look for the feed link hidden in the page, then try common feed addresses.
+async function findFeed(link, html) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const tag = doc.querySelector('link[rel~="alternate"][type="application/rss+xml"], link[rel~="alternate"][type="application/atom+xml"], link[rel~="alternate"][type="application/feed+json"]');
+  // Sites that redirect (astralcodex.com -> www.astralcodexten.com) name their real address in a canonical tag.
+  let base = link;
+  try { base = new URL(doc.querySelector('link[rel="canonical"]')?.getAttribute("href") || link, link).href; } catch { /* keep link */ }
+  const tries = [];
+  if (tag?.getAttribute("href")) tries.push(new URL(tag.getAttribute("href"), base).href);
+  ["/feed", "/rss", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml"].forEach((p) => tries.push(new URL(p, base).href));
+  if (base !== link) tries.push(new URL("/feed", link).href);
+  for (const url of tries) {
+    try {
+      const feed = parseFeed(await getText(url));
+      if (feed) { feed.url = url; return feed; }
+    } catch { /* try the next one */ }
+  }
+  return null;
+}
+
+// Short plain-text preview for List view (#30): strip HTML, keep about 2 lines.
+function makePreview(html) {
+  const text = (new DOMParser().parseFromString(html || "", "text/html").body.textContent || "").replace(/\s+/g, " ").trim();
+  return text.length > 180 ? text.slice(0, 177).replace(/\s+\S*$/, "") + "..." : text;
+}
+
+function parseFeed(text) {
+  const xml = new DOMParser().parseFromString(text, "text/xml");
+  if (xml.querySelector("parsererror")) return null;
+  const items = [...xml.querySelectorAll("item, entry")];
+  if (!items.length && !xml.querySelector("rss, feed")) return null;
+  const pick = (el, sel) => el.querySelector(sel)?.textContent?.trim() || "";
+  return {
+    title: pick(xml, "channel > title") || pick(xml, "feed > title") || "Feed",
+    posts: items.map((it) => ({
+      title: pick(it, "title") || "(no title)",
+      link: it.querySelector("link")?.getAttribute("href") || pick(it, "link"),
+      date: new Date(pick(it, "published") || pick(it, "pubDate") || pick(it, "updated")),
+      thumb: [...it.getElementsByTagName("media:thumbnail")][0]?.getAttribute("url") || "",
+      preview: makePreview(
+        pick(it, "description") || pick(it, "summary") || pick(it, "content") ||
+        ([...it.getElementsByTagName("media:description")][0]?.textContent || "")
+      )
+    }))
+  };
+}
+
+// Saved feed list (#21): kept in this browser, so feeds come back after closing.
+const STORE_KEY = "feedhub.feeds";
+function loadSaved() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; } catch { return []; }
+}
+function saveFeeds(list) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); } catch { setStatus("Couldn't save your feeds in this browser.", true); }
+}
+
+// Read posts (#25), remembered by link. Kept to the newest 5000 so storage stays small.
+const READ_KEY = "feedhub.read";
+const HIDE_KEY = "feedhub.hideRead";
+let readLinks;
+try { readLinks = new Set(JSON.parse(localStorage.getItem(READ_KEY)) || []); } catch { readLinks = new Set(); }
+function markRead(link) {
+  if (!link || readLinks.has(link)) return;
+  readLinks.add(link);
+  try { localStorage.setItem(READ_KEY, JSON.stringify([...readLinks].slice(-5000))); } catch { /* non-fatal */ }
+}
+const hideReadBox = document.getElementById("hideRead");
+try { hideReadBox.checked = localStorage.getItem(HIDE_KEY) === "1"; } catch { /* default off */ }
+hideReadBox.addEventListener("change", () => {
+  try { localStorage.setItem(HIDE_KEY, hideReadBox.checked ? "1" : "0"); } catch { /* non-fatal */ }
+  render();
+});
+
+// Saved posts (#26). Whole post is stored, so it stays even after it drops out of its feed.
+const SAVED_KEY = "feedhub.saved";
+let savedPosts;
+try { savedPosts = JSON.parse(localStorage.getItem(SAVED_KEY)) || []; } catch { savedPosts = []; }
+const isSaved = (link) => savedPosts.some((s) => s.link === link);
+function toggleSave(p) {
+  if (isSaved(p.link)) savedPosts = savedPosts.filter((s) => s.link !== p.link);
+  else savedPosts.unshift({ title: p.title, link: p.link, date: isNaN(p.date) ? "" : p.date.toISOString(), thumb: p.thumb, source: p.source, preview: p.preview });
+  try { localStorage.setItem(SAVED_KEY, JSON.stringify(savedPosts)); } catch { setStatus("Couldn't save that post in this browser.", true); }
+}
+
+// Sort choice (#29), remembered between visits.
+const SORT_KEY = "feedhub.sort";
+const sortBox = document.getElementById("sortBy");
+try { const s = localStorage.getItem(SORT_KEY); if (s) sortBox.value = s; } catch { /* default newest */ }
+sortBox.addEventListener("change", () => {
+  try { localStorage.setItem(SORT_KEY, sortBox.value); } catch { /* non-fatal */ }
+  render();
+});
+
+// Layout switch (#30): Cards (pictures) or List (text first).
+document.querySelectorAll(".view-btn").forEach((btn) => {
+  btn.onclick = () => {
+    document.querySelectorAll(".view-btn").forEach((b) => b.setAttribute("aria-pressed", b === btn));
+    feedsEl.className = "layout-" + btn.dataset.layout;
+    if (btn.dataset.layout === "swipe") feedsEl.querySelector(".postlist")?.scrollTo(0, 0);
+    try { localStorage.setItem(LAYOUT_KEY, btn.dataset.layout); } catch { /* non-fatal */ }
+  };
+});
+
+// Remember my last view (#33): reopen in whichever view was picked last.
+const LAYOUT_KEY = "feedhub.layout";
+try {
+  const last = localStorage.getItem(LAYOUT_KEY);
+  if (last) document.querySelector('.view-btn[data-layout="' + last + '"]')?.click();
+} catch { /* default Cards */ }
+
+// Swipe view: Exit button, Esc to leave, arrow keys move one post on a computer.
+const exitSwipe = () => document.querySelector('.view-btn[data-layout="cards"]').click();
+document.getElementById("swipeExit").onclick = exitSwipe;
+document.addEventListener("keydown", (e) => {
+  if (feedsEl.className !== "layout-swipe") return;
+  const list = feedsEl.querySelector(".postlist");
+  if (e.key === "Escape") exitSwipe();
+  else if (list && ["ArrowDown", "PageDown", " "].includes(e.key)) { e.preventDefault(); list.scrollBy({ top: list.clientHeight, behavior: "smooth" }); }
+  else if (list && ["ArrowUp", "PageUp"].includes(e.key)) { e.preventDefault(); list.scrollBy({ top: -list.clientHeight, behavior: "smooth" }); }
+});
+
+let view = "all";
+function setView(v) {
+  view = v;
+  document.getElementById("tabAll").setAttribute("aria-selected", v === "all");
+  document.getElementById("tabSaved").setAttribute("aria-selected", v === "saved");
+  render();
+}
+document.getElementById("tabAll").onclick = () => setView("all");
+document.getElementById("tabSaved").onclick = () => setView("saved");
+
+// Feeds loaded this session. The page shows them as one combined list (#24).
+const loaded = [];
+
+function showFeed(feed, atEnd) {
+  if (atEnd) loaded.push(feed); else loaded.unshift(feed);
+  render();
+}
+
+function removeFeed(feed) {
+  loaded.splice(loaded.indexOf(feed), 1);
+  saveFeeds(loadSaved().filter((f) => f.url !== feed.url));
+  render();
+  setStatus("Removed " + feed.title + ".");
+}
+
+// Folders (#30). Each saved feed can have one folder name.
+const FOLDER_KEY = "feedhub.activeFolder";
+let activeFolder = "";
+try { activeFolder = localStorage.getItem(FOLDER_KEY) || ""; } catch { /* show all */ }
+const folderOf = (url) => (loadSaved().find((f) => f.url === url) || {}).folder || "";
+const allFolders = () => [...new Set(loadSaved().map((f) => f.folder).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
+function setActiveFolder(name) {
+  activeFolder = name;
+  try { localStorage.setItem(FOLDER_KEY, name); } catch { /* non-fatal */ }
+  render();
+}
+
+function setFolder(feed, name) {
+  saveFeeds(loadSaved().map((f) => (f.url === feed.url ? { ...f, folder: name || undefined } : f)));
+  if (activeFolder && !allFolders().includes(activeFolder)) activeFolder = "";
+  render();
+  setStatus(name ? "Moved " + feed.title + " to " + name + "." : feed.title + " is no longer in a folder.");
+}
+
+// Pins (#28). A pinned feed's newest post always shows first.
+const isPinned = (url) => !!(loadSaved().find((f) => f.url === url) || {}).pinned;
+function togglePin(feed) {
+  const on = !isPinned(feed.url);
+  saveFeeds(loadSaved().map((f) => (f.url === feed.url ? { ...f, pinned: on || undefined } : f)));
+  render();
+  setStatus(on ? "Pinned " + feed.title + ". Its newest post stays on top." : "Unpinned " + feed.title + ".");
+}
+
+function render() {
+  feedsEl.innerHTML = "";
+  if (!loaded.length) { if (view === "saved") renderPosts(); return; }
+
+  // Folder bar: tap a folder to see only its feeds
+  const folders = allFolders();
+  if (activeFolder && !folders.includes(activeFolder)) activeFolder = "";
+  if (folders.length) {
+    const fbar = document.createElement("div");
+    fbar.className = "folders";
+    [["", "All feeds"], ...folders.map((f) => [f, f])].forEach(([value, text]) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = text;
+      b.className = "folder" + (activeFolder === value ? " on" : "");
+      b.setAttribute("aria-pressed", activeFolder === value);
+      b.onclick = () => setActiveFolder(value);
+      fbar.appendChild(b);
+    });
+    feedsEl.appendChild(fbar);
+  }
+
+  // Following bar: every feed, with its folder menu and Remove button
+  const bar = document.createElement("div");
+  bar.className = "following";
+  const label = document.createElement("span");
+  label.className = "following-label"; label.textContent = "Following:";
+  bar.appendChild(label);
+  // Grouped: feeds with no folder first, then each folder A to Z (same order export uses).
+  const grouped = [...loaded.filter((f) => !folderOf(f.url)), ...folders.flatMap((name) => loaded.filter((f) => folderOf(f.url) === name))];
+  grouped.forEach((feed) => {
+    const chip = document.createElement("span");
+    chip.className = "chip" + (feed.error ? " chip-error" : "");
+    chip.title = feed.error ? "Couldn't load this feed right now: " + feed.error : "";
+    chip.textContent = feed.title + (feed.error ? " (not loading)" : "");
+    const pick = document.createElement("select");
+    pick.className = "folder-pick";
+    pick.setAttribute("aria-label", "Folder for " + feed.title);
+    const current = folderOf(feed.url);
+    [["", "No folder"], ...folders.map((f) => [f, f]), ["__new", "+ New folder..."]].forEach(([value, text]) => {
+      const o = document.createElement("option");
+      o.value = value; o.textContent = text; o.selected = value === current;
+      pick.appendChild(o);
+    });
+    pick.onchange = () => {
+      if (pick.value !== "__new") return setFolder(feed, pick.value);
+      const name = (window.prompt("Name the new folder:", "") || "").trim();
+      if (name) setFolder(feed, name); else pick.value = current;
+    };
+    chip.appendChild(pick);
+    const pin = document.createElement("button");
+    const pinned = isPinned(feed.url);
+    pin.type = "button"; pin.className = "pin" + (pinned ? " on" : "");
+    pin.textContent = pinned ? "Pinned" : "Pin";
+    pin.setAttribute("aria-pressed", pinned);
+    pin.setAttribute("aria-label", (pinned ? "Unpin " : "Pin ") + feed.title);
+    pin.onclick = () => togglePin(feed);
+    chip.appendChild(pin);
+    const rm = document.createElement("button");
+    rm.type = "button"; rm.className = "remove"; rm.textContent = "Remove";
+    rm.setAttribute("aria-label", "Remove " + feed.title);
+    rm.onclick = () => removeFeed(feed);
+    chip.appendChild(rm);
+    bar.appendChild(chip);
+  });
+  feedsEl.appendChild(bar);
+
+  renderPosts();
+}
+
+function renderPosts() {
+  let shown;
+  if (view === "saved") {
+    shown = savedPosts.map((s) => ({ ...s, date: new Date(s.date) }));
+    if (!shown.length) {
+      const none = document.createElement("p");
+      none.className = "sub"; none.textContent = "Nothing saved yet. Tap Save on any post to keep it here.";
+      feedsEl.appendChild(none);
+    }
+  } else {
+    // One combined stream, sorted by the Sort menu. Posts with no date go to the bottom.
+    const inView = activeFolder ? loaded.filter((feed) => folderOf(feed.url) === activeFolder) : loaded;
+    const posts = inView.flatMap((feed) => (feed.posts || []).map((p) => ({ ...p, source: feed.title })));
+    const time = (p) => (isNaN(p.date) ? null : p.date.getTime());
+    const byDate = (a, b, dir) => {
+      const ta = time(a), tb = time(b);
+      if (ta === null || tb === null) return (ta === null) - (tb === null);
+      return dir * (tb - ta);
+    };
+    const sort = sortBox.value;
+    if (sort === "oldest") posts.sort((a, b) => byDate(a, b, -1));
+    else if (sort === "source") posts.sort((a, b) => a.source.localeCompare(b.source) || byDate(a, b, 1));
+    else posts.sort((a, b) => byDate(a, b, 1));
+    // Pinned feeds: lift each one's newest post to the top, newest pin first.
+    const tops = inView.filter((feed) => isPinned(feed.url)).map((feed) => {
+      const own = posts.filter((p) => p.source === feed.title);
+      own.sort((a, b) => byDate(a, b, 1));
+      return own[0];
+    }).filter(Boolean);
+    tops.sort((a, b) => byDate(a, b, 1));
+    tops.forEach((p) => { p.pinned = true; });
+    posts.splice(0, posts.length, ...tops, ...posts.filter((p) => !tops.includes(p)));
+    shown = hideReadBox.checked ? posts.filter((p) => !readLinks.has(p.link)) : posts;
+    if (posts.length && !shown.length) {
+      const done = document.createElement("p");
+      done.className = "sub"; done.textContent = "You're all caught up. Turn off Hide read to see older posts.";
+      feedsEl.appendChild(done);
+    }
+  }
+  const list = document.createElement("div");
+  list.className = "postlist";
+  feedsEl.appendChild(list);
+  shown.forEach((p) => {
+    const a = document.createElement("a");
+    a.className = "post" + (readLinks.has(p.link) ? " read" : ""); a.href = p.link; a.target = "_blank"; a.rel = "noopener";
+    a.addEventListener("click", () => { markRead(p.link); a.classList.add("read"); });
+    if (p.thumb) { const img = document.createElement("img"); img.src = p.thumb; img.alt = ""; img.loading = "lazy"; a.appendChild(img); }
+    else { const ph = document.createElement("div"); ph.className = "noimg"; ph.textContent = (p.source || "?").charAt(0).toUpperCase(); a.appendChild(ph); }
+    const info = document.createElement("div");
+    info.className = "info";
+    const t = document.createElement("div"); t.className = "title"; t.textContent = p.title;
+    const d = document.createElement("div"); d.className = "date";
+    const when = isNaN(p.date) ? "" : p.date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    d.textContent = (p.pinned ? "Pinned · " : "") + p.source + (when ? " · " + when : "");
+    const pv = document.createElement("div"); pv.className = "preview"; pv.textContent = p.preview || "";
+    info.append(t, d, pv); a.appendChild(info);
+    const sv = document.createElement("button");
+    sv.type = "button";
+    const paint = () => { const on = isSaved(p.link); sv.className = "save" + (on ? " on" : ""); sv.textContent = on ? "Saved" : "Save"; sv.setAttribute("aria-pressed", on); };
+    paint();
+    sv.addEventListener("click", (e) => {
+      e.preventDefault(); e.stopPropagation(); // don't open the post
+      toggleSave(p);
+      if (view === "saved") render(); else paint();
+    });
+    a.appendChild(sv);
+    list.appendChild(a);
+  });
+}
+
+// Platforms that don't share feeds. Checked before fetching so the message is clear and fast.
+const NO_FEED = [
+  { match: /(^|\.)tiktok\.com$/, name: "TikTok" },
+  { match: /(^|\.)instagram\.com$/, name: "Instagram" },
+  { match: /(^|\.)(x|twitter)\.com$/, name: "X (Twitter)" },
+  { match: /(^|\.)linkedin\.com$/, name: "LinkedIn" },
+  { match: /(^|\.)facebook\.com$/, name: "Facebook" },
+  { match: /(^|\.)threads\.(net|com)$/, name: "Threads" },
+  { match: /(^|\.)reddit\.com$/, name: "Reddit" }
+];
+
+function noFeedMessage(link) {
+  let host;
+  try { host = new URL(link).hostname.toLowerCase(); } catch { return "That doesn't look like a web link. Check it and try again."; }
+  const p = NO_FEED.find((x) => x.match.test(host));
+  return p ? p.name + " doesn't share a feed yet, so Feed Hub can't follow it. Open it in the " + p.name + " app for now." : "";
+}
+
+document.getElementById("addForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  let link = document.getElementById("link").value.trim();
+  if (!link) return;
+  if (!/^https?:\/\//i.test(link)) link = "https://" + link;
+  const blocked = noFeedMessage(link);
+  if (blocked) { setStatus(blocked, true); return; }
+  const btn = document.getElementById("addBtn");
+  btn.disabled = true;
+  setStatus("Loading...");
+  try {
+    const feedUrl = /youtube\.com\/(@|channel\/|c\/|user\/)/i.test(link) ? await youtubeFeedUrl(link) : link;
+    const text = await getText(feedUrl);
+    let feed = parseFeed(text);
+    if (!feed) { setStatus("Looking for this site's feed..."); feed = await findFeed(feedUrl, text); }
+    else feed.url = feedUrl;
+    if (!feed) throw new Error("Couldn't find a feed on that site. Not every site shares one. Try the site's home page or a YouTube channel link.");
+    const saved = loadSaved();
+    if (saved.some((f) => f.url === feed.url)) { setStatus("You already follow " + feed.title + "."); return; }
+    saveFeeds([{ url: feed.url, title: feed.title }, ...saved]);
+    showFeed(feed);
+    document.getElementById("link").value = "";
+    setStatus("Added " + feed.title + " (" + feed.posts.length + " posts).");
+  } catch (err) {
+    setStatus(err.message || "Something went wrong.", true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// Export / import (#22). OPML is the standard feed-list file every RSS reader understands.
+function escXml(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+document.getElementById("exportBtn").onclick = () => {
+  const saved = loadSaved();
+  if (!saved.length) { setStatus("You don't follow any feeds yet, so there's nothing to export.", true); return; }
+  // Feeds in a folder go inside a folder outline, the standard way other readers understand.
+  const line = (f, pad) => pad + '<outline type="rss" text="' + escXml(f.title) + '" title="' + escXml(f.title) + '" xmlUrl="' + escXml(f.url) + '"/>';
+  const lines = saved.filter((f) => !f.folder).map((f) => line(f, "    "));
+  allFolders().forEach((name) => {
+    lines.push('    <outline text="' + escXml(name) + '" title="' + escXml(name) + '">');
+    saved.filter((f) => f.folder === name).forEach((f) => lines.push(line(f, "      ")));
+    lines.push("    </outline>");
+  });
+  const opml = '<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0">\n  <head><title>Feed Hub feeds</title></head>\n  <body>\n' + lines.join("\n") + "\n  </body>\n</opml>\n";
+  const url = URL.createObjectURL(new Blob([opml], { type: "text/xml" }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: "feedhub-feeds-" + new Date().toISOString().slice(0, 10) + ".opml" });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setStatus("Exported " + saved.length + " feed" + (saved.length === 1 ? "" : "s") + ". Check your Downloads folder.");
+};
+
+document.getElementById("importBtn").onclick = () => document.getElementById("importFile").click();
+document.getElementById("importFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  const xml = new DOMParser().parseFromString(await file.text(), "text/xml");
+  const found = [...xml.querySelectorAll("outline[xmlUrl]")].map((o) => {
+    const parent = o.parentElement;
+    const folder = parent && parent.tagName === "outline" && !parent.hasAttribute("xmlUrl") ? (parent.getAttribute("title") || parent.getAttribute("text") || "").trim() : "";
+    return {
+      url: o.getAttribute("xmlUrl"),
+      title: o.getAttribute("title") || o.getAttribute("text") || "Feed",
+      ...(folder ? { folder } : {})
+    };
+  });
+  if (!found.length) { setStatus("That file has no feeds in it. Pick an .opml file from Feed Hub or another RSS reader.", true); return; }
+  const saved = loadSaved();
+  const fresh = found.filter((f) => !saved.some((s) => s.url === f.url));
+  saveFeeds([...saved, ...fresh]);
+  setStatus("Imported " + fresh.length + " new feed" + (fresh.length === 1 ? "" : "s") + ". Loading...");
+  setTimeout(() => location.reload(), 600);
+});
+
+// Load every saved feed fresh, keeping their order. Runs on open and on Refresh (#27).
+const refreshBtn = document.getElementById("refreshBtn");
+const lastEl = document.getElementById("lastRefreshed");
+async function refreshAll() {
+  const saved = loadSaved();
+  if (!saved.length) { setStatus("You don't follow any feeds yet. Paste a link above to add one."); return; }
+  refreshBtn.disabled = true;
+  setStatus("Loading your " + saved.length + " feed" + (saved.length === 1 ? "" : "s") + "...");
+  const results = await Promise.all(saved.map(async (f) => {
+    try {
+      const feed = parseFeed(await getText(f.url));
+      if (!feed) throw new Error("it isn't sharing posts.");
+      feed.url = f.url;
+      return feed;
+    } catch (err) {
+      return { url: f.url, title: f.title, posts: [], error: err.message };
+    }
+  }));
+  loaded.length = 0;
+  loaded.push(...results);
+  render();
+  refreshBtn.disabled = false;
+  lastEl.textContent = "Last refreshed " + new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const failed = results.filter((f) => f.error).length;
+  setStatus(failed ? failed + " feed" + (failed === 1 ? "" : "s") + " couldn't load right now." : "");
+}
+refreshBtn.onclick = refreshAll;
+refreshAll();
+</script>
+</body>
+</html>
