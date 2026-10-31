@@ -405,6 +405,11 @@ function render() {
     pin.setAttribute("aria-label", (pinned ? "Unpin " : "Pin ") + feed.title);
     pin.onclick = () => togglePin(feed);
     chip.appendChild(pin);
+    const shf = document.createElement("button");
+    shf.type = "button"; shf.className = "pin"; shf.textContent = "Share";
+    shf.setAttribute("aria-label", "Share the feed " + feed.title);
+    shf.onclick = () => shareFeed(feed);
+    chip.appendChild(shf);
     const rm = document.createElement("button");
     rm.type = "button"; rm.className = "remove"; rm.textContent = "Remove";
     rm.setAttribute("aria-label", "Remove " + feed.title);
@@ -621,14 +626,22 @@ const LIVE_URL = "https://vintor.github.io/feed-hub/";
 const toCode = (obj) => btoa(unescape(encodeURIComponent(JSON.stringify(obj)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const fromCode = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, "+").replace(/_/g, "/")))));
 
-async function sharePost(p) {
-  const url = LIVE_URL + "#share=" + toCode({ t: p.title, l: p.link, s: p.source, f: p.feedUrl || "" });
+async function sendLink(title, text, url) {
   if (navigator.share) {
-    try { await navigator.share({ title: p.title, text: "Check this out on Feed Hub: " + p.title, url }); return; }
+    try { await navigator.share({ title, text, url }); return; }
     catch (err) { if (err.name === "AbortError") return; }
   }
   try { await navigator.clipboard.writeText(url); setStatus("Share link copied. Paste it in a text to your friend."); }
   catch { window.prompt("Copy this link and send it to your friend:", url); }
+}
+
+function sharePost(p) {
+  sendLink(p.title, "Check this out on Feed Hub: " + p.title, LIVE_URL + "#share=" + toCode({ t: p.title, l: p.link, s: p.source, f: p.feedUrl || "" }));
+}
+
+// Share a whole feed: the friend gets a card with a Follow button.
+function shareFeed(feed) {
+  sendLink(feed.title, "Here's a good feed to follow on Feed Hub: " + feed.title, LIVE_URL + "#share=" + toCode({ s: feed.title, f: feed.url }));
 }
 
 // Opening a shared link: show a card with Read it / Follow this source.
@@ -638,16 +651,20 @@ function showShared() {
   if (!m) { box.hidden = true; return; }
   let s;
   try { s = fromCode(m[1]); } catch { box.hidden = true; return; }
-  if (!/^https?:\/\//i.test(s.l || "")) { box.hidden = true; return; }
+  const isPost = /^https?:\/\//i.test(s.l || "");
+  const isFeed = !isPost && /^https?:\/\//i.test(s.f || "");
+  if (!isPost && !isFeed) { box.hidden = true; return; }
   box.innerHTML = '<div class="label">Shared with you</div><div class="stitle"></div><div class="ssrc"></div><div class="row"></div>';
-  box.querySelector(".stitle").textContent = s.t || "A post";
-  box.querySelector(".ssrc").textContent = "From " + (s.s || "a feed");
+  box.querySelector(".stitle").textContent = isPost ? (s.t || "A post") : (s.s || "A feed");
+  box.querySelector(".ssrc").textContent = isPost ? "From " + (s.s || "a feed") : "A feed your friend thinks you'll like";
   const row = box.querySelector(".row");
-  const read = Object.assign(document.createElement("a"), { className: "primary", href: s.l, target: "_blank", rel: "noopener", textContent: "Read it" });
-  row.appendChild(read);
+  if (isPost) {
+    const read = Object.assign(document.createElement("a"), { className: "primary", href: s.l, target: "_blank", rel: "noopener", textContent: "Read it" });
+    row.appendChild(read);
+  }
   if (/^https?:\/\//i.test(s.f || "")) {
     const already = loadSaved().some((f) => f.url === s.f);
-    const follow = Object.assign(document.createElement("button"), { type: "button", className: "plain", textContent: already ? "You follow " + (s.s || "this") : "Follow " + (s.s || "this source") });
+    const follow = Object.assign(document.createElement("button"), { type: "button", className: isPost ? "plain" : "primary", textContent: already ? "You follow " + (s.s || "this") : "Follow " + (s.s || "this source") });
     follow.disabled = already;
     follow.onclick = () => {
       document.getElementById("link").value = s.f;
