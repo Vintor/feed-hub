@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Feed Hub</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#2e7d5b">
 <style>
   body { font-family: system-ui, sans-serif; max-width: 760px; margin: 0 auto; padding: 20px 16px; background: #f6f7f5; color: #1f2a26; }
   h1 { font-size: 1.6rem; margin: 0 0 4px; }
@@ -595,6 +598,9 @@ async function refreshAll() {
 }
 refreshBtn.onclick = refreshAll;
 refreshAll();
+
+// Home screen app (#36). Only works on the live site, not the local copy.
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
 </html>
