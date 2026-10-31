@@ -57,6 +57,17 @@
   .layout-swipe .post.read { opacity: 1; }
   #swipeExit { display: none; }
   #feeds.layout-swipe + #swipeExit { display: block; position: fixed; z-index: 60; top: 12px; left: 12px; font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border: 1px solid #444; border-radius: 999px; background: #222; color: #fff; cursor: pointer; }
+  .share { font: inherit; font-size: 12px; align-self: flex-start; padding: 4px 10px; border: 1px solid #c9d3ce; border-radius: 999px; background: #fff; color: #1f2a26; cursor: pointer; flex-shrink: 0; }
+  .layout-grid .share { position: absolute; top: 6px; right: 62px; }
+  .layout-swipe .share { position: absolute; top: 14px; right: 76px; }
+  #shared { background: #fff; border: 2px solid #2e7d5b; border-radius: 10px; padding: 14px; margin: 10px 0; }
+  #shared .label { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #2e7d5b; }
+  #shared .stitle { font-weight: 700; font-size: 17px; margin: 4px 0 2px; }
+  #shared .ssrc { color: #5d6b65; font-size: 13px; margin-bottom: 10px; }
+  #shared .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  #shared a, #shared button { font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 6px; cursor: pointer; text-decoration: none; }
+  #shared .primary { background: #2e7d5b; color: #fff; border: 0; }
+  #shared .plain { background: #fff; color: #1f2a26; border: 1px solid #c9d3ce; }
   .tabs { display: flex; gap: 4px; margin-top: 14px; border-bottom: 1px solid #d3dcd7; }
   .tabs button { font: inherit; font-weight: 600; padding: 8px 14px; border: 0; border-bottom: 3px solid transparent; background: none; color: #5d6b65; cursor: pointer; }
   .tabs button[aria-selected="true"] { color: #1f2a26; border-bottom-color: #2e7d5b; }
@@ -120,6 +131,7 @@
   <button id="tabSaved" type="button" role="tab" aria-selected="false">Saved</button>
 </div>
 <div id="status"></div>
+<div id="shared" hidden></div>
 <div id="feeds"></div>
 <button id="swipeExit" type="button">Exit swipe</button>
 
@@ -417,7 +429,7 @@ function renderPosts() {
   } else {
     // One combined stream, sorted by the Sort menu. Posts with no date go to the bottom.
     const inView = activeFolder ? loaded.filter((feed) => folderOf(feed.url) === activeFolder) : loaded;
-    const posts = inView.flatMap((feed) => (feed.posts || []).map((p) => ({ ...p, source: feed.title })));
+    const posts = inView.flatMap((feed) => (feed.posts || []).map((p) => ({ ...p, source: feed.title, feedUrl: feed.url })));
     const time = (p) => (isNaN(p.date) ? null : p.date.getTime());
     const byDate = (a, b, dir) => {
       const ta = time(a), tb = time(b);
@@ -471,6 +483,11 @@ function renderPosts() {
       if (view === "saved") render(); else paint();
     });
     a.appendChild(sv);
+    const sh = document.createElement("button");
+    sh.type = "button"; sh.className = "share"; sh.textContent = "Share";
+    sh.setAttribute("aria-label", "Share " + p.title);
+    sh.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); sharePost(p); });
+    a.appendChild(sh);
     list.appendChild(a);
   });
 }
@@ -598,6 +615,56 @@ async function refreshAll() {
 }
 refreshBtn.onclick = refreshAll;
 refreshAll();
+
+// Share to a friend. The post rides in the link after the "#", which never gets sent to any server.
+const LIVE_URL = "https://vintor.github.io/feed-hub/";
+const toCode = (obj) => btoa(unescape(encodeURIComponent(JSON.stringify(obj)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const fromCode = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, "+").replace(/_/g, "/")))));
+
+async function sharePost(p) {
+  const url = LIVE_URL + "#share=" + toCode({ t: p.title, l: p.link, s: p.source, f: p.feedUrl || "" });
+  if (navigator.share) {
+    try { await navigator.share({ title: p.title, text: "Check this out on Feed Hub: " + p.title, url }); return; }
+    catch (err) { if (err.name === "AbortError") return; }
+  }
+  try { await navigator.clipboard.writeText(url); setStatus("Share link copied. Paste it in a text to your friend."); }
+  catch { window.prompt("Copy this link and send it to your friend:", url); }
+}
+
+// Opening a shared link: show a card with Read it / Follow this source.
+function showShared() {
+  const box = document.getElementById("shared");
+  const m = location.hash.match(/^#share=([\w-]+)$/);
+  if (!m) { box.hidden = true; return; }
+  let s;
+  try { s = fromCode(m[1]); } catch { box.hidden = true; return; }
+  if (!/^https?:\/\//i.test(s.l || "")) { box.hidden = true; return; }
+  box.innerHTML = '<div class="label">Shared with you</div><div class="stitle"></div><div class="ssrc"></div><div class="row"></div>';
+  box.querySelector(".stitle").textContent = s.t || "A post";
+  box.querySelector(".ssrc").textContent = "From " + (s.s || "a feed");
+  const row = box.querySelector(".row");
+  const read = Object.assign(document.createElement("a"), { className: "primary", href: s.l, target: "_blank", rel: "noopener", textContent: "Read it" });
+  row.appendChild(read);
+  if (/^https?:\/\//i.test(s.f || "")) {
+    const already = loadSaved().some((f) => f.url === s.f);
+    const follow = Object.assign(document.createElement("button"), { type: "button", className: "plain", textContent: already ? "You follow " + (s.s || "this") : "Follow " + (s.s || "this source") });
+    follow.disabled = already;
+    follow.onclick = () => {
+      document.getElementById("link").value = s.f;
+      document.getElementById("addForm").requestSubmit();
+      follow.disabled = true; follow.textContent = "Following " + (s.s || "it");
+    };
+    row.appendChild(follow);
+  }
+  const close = Object.assign(document.createElement("button"), { type: "button", className: "plain", textContent: "Close" });
+  close.onclick = () => { history.replaceState(null, "", location.pathname + location.search); box.hidden = true; };
+  row.appendChild(close);
+  box.hidden = false;
+  // Leave Swipe view so the card is visible
+  if (feedsEl.className === "layout-swipe") document.querySelector('.view-btn[data-layout="cards"]').click();
+}
+showShared();
+window.addEventListener("hashchange", showShared);
 
 // Home screen app (#36). Only works on the live site, not the local copy.
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
