@@ -109,6 +109,7 @@
   <button id="importBtn" type="button">Import feeds</button>
   <input id="importFile" type="file" accept=".opml,.xml,text/xml" hidden>
   <label class="toggle"><input id="hideRead" type="checkbox"> Hide read</label>
+  <label class="toggle"><input id="scrollRead" type="checkbox"> Mark read as I scroll</label>
   <label class="toggle">Sort
     <select id="sortBy">
       <option value="newest">Newest first</option>
@@ -272,6 +273,8 @@ document.querySelectorAll(".view-btn").forEach((btn) => {
     document.querySelectorAll(".view-btn").forEach((b) => b.setAttribute("aria-pressed", b === btn));
     feedsEl.className = "layout-" + btn.dataset.layout;
     if (btn.dataset.layout === "swipe") feedsEl.querySelector(".postlist")?.scrollTo(0, 0);
+    const pl = feedsEl.querySelector(".postlist");
+    if (pl) watchForRead(pl); // swipe scrolls inside its own box, so re-aim the watcher
     try { localStorage.setItem(LAYOUT_KEY, btn.dataset.layout); } catch { /* non-fatal */ }
   };
 });
@@ -303,6 +306,36 @@ function setView(v) {
 }
 document.getElementById("tabAll").onclick = () => setView("all");
 document.getElementById("tabSaved").onclick = () => setView("saved");
+
+// Mark read as I scroll: a post counts as read once it was on screen and then scrolled up and away.
+// It only fades (no jumping); Hide read takes it out on the next refresh or tab switch.
+const SCROLL_READ_KEY = "feedhub.scrollRead";
+const scrollReadBox = document.getElementById("scrollRead");
+try { scrollReadBox.checked = localStorage.getItem(SCROLL_READ_KEY) === "1"; } catch { /* default off */ }
+scrollReadBox.addEventListener("change", () => {
+  try { localStorage.setItem(SCROLL_READ_KEY, scrollReadBox.checked ? "1" : "0"); } catch { /* non-fatal */ }
+  render();
+});
+let readObserver = null;
+function watchForRead(list) {
+  if (readObserver) readObserver.disconnect();
+  readObserver = null;
+  if (!scrollReadBox.checked || view === "saved" || !("IntersectionObserver" in window)) return;
+  const swipe = feedsEl.className === "layout-swipe";
+  readObserver = new IntersectionObserver((entries) => {
+    entries.forEach((en) => {
+      const el = en.target;
+      if (en.isIntersecting && en.intersectionRatio >= 0.5) { el.dataset.seen = "1"; return; }
+      const rootTop = swipe ? list.getBoundingClientRect().top : 0;
+      if (!en.isIntersecting && el.dataset.seen && en.boundingClientRect.bottom <= rootTop + 1) {
+        markRead(el.dataset.link);
+        el.classList.add("read");
+        readObserver.unobserve(el);
+      }
+    });
+  }, { root: swipe ? list : null, threshold: [0, 0.5] });
+  list.querySelectorAll(".post:not(.read)").forEach((el) => readObserver.observe(el));
+}
 
 // Feeds loaded this session. The page shows them as one combined list (#24).
 const loaded = [];
@@ -467,6 +500,7 @@ function renderPosts() {
   shown.forEach((p) => {
     const a = document.createElement("a");
     a.className = "post" + (readLinks.has(p.link) ? " read" : ""); a.href = p.link; a.target = "_blank"; a.rel = "noopener";
+    a.dataset.link = p.link;
     a.addEventListener("click", () => { markRead(p.link); a.classList.add("read"); });
     if (p.thumb) { const img = document.createElement("img"); img.src = p.thumb; img.alt = ""; img.loading = "lazy"; a.appendChild(img); }
     else { const ph = document.createElement("div"); ph.className = "noimg"; ph.textContent = (p.source || "?").charAt(0).toUpperCase(); a.appendChild(ph); }
@@ -495,6 +529,7 @@ function renderPosts() {
     a.appendChild(sh);
     list.appendChild(a);
   });
+  watchForRead(list);
 }
 
 // Platforms that don't share feeds. Checked before fetching so the message is clear and fast.
