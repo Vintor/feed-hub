@@ -68,6 +68,7 @@
   #shared a, #shared button { font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 6px; cursor: pointer; text-decoration: none; }
   #shared .primary { background: #2e7d5b; color: #fff; border: 0; }
   #shared .plain { background: #fff; color: #1f2a26; border: 1px solid #c9d3ce; }
+  #toTop { position: fixed; z-index: 40; right: 16px; bottom: 16px; font: inherit; font-size: 13px; font-weight: 600; padding: 10px 14px; border: 0; border-radius: 999px; background: #1f2a26; color: #fff; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
   .tabs { display: flex; gap: 4px; margin-top: 14px; border-bottom: 1px solid #d3dcd7; }
   .tabs button { font: inherit; font-weight: 600; padding: 8px 14px; border: 0; border-bottom: 3px solid transparent; background: none; color: #5d6b65; cursor: pointer; }
   .tabs button[aria-selected="true"] { color: #1f2a26; border-bottom-color: #2e7d5b; }
@@ -110,6 +111,7 @@
   <input id="importFile" type="file" accept=".opml,.xml,text/xml" hidden>
   <label class="toggle"><input id="hideRead" type="checkbox"> Hide read</label>
   <label class="toggle"><input id="scrollRead" type="checkbox"> Mark read as I scroll</label>
+  <button id="clearRead" type="button">Clear read</button>
   <label class="toggle">Sort
     <select id="sortBy">
       <option value="newest">Newest first</option>
@@ -135,6 +137,7 @@
 <div id="shared" hidden></div>
 <div id="feeds"></div>
 <button id="swipeExit" type="button">Exit swipe</button>
+<button id="toTop" type="button" hidden>Back to top</button>
 
 <script>
 // Dan's helper on Cloudflare (#8). Browsers can't read feed sites directly.
@@ -307,8 +310,9 @@ function setView(v) {
 document.getElementById("tabAll").onclick = () => setView("all");
 document.getElementById("tabSaved").onclick = () => setView("saved");
 
-// Mark read as I scroll: a post counts as read once it was on screen and then scrolled up and away.
-// It only fades (no jumping); Hide read takes it out on the next refresh or tab switch.
+// Mark read as I scroll: a post counts as read once at least half of it stays on screen for 3 seconds.
+// Works for the last posts too (no need to scroll past). It only fades (no jumping); "Clear read" removes them.
+const READ_DELAY_MS = 3000;
 const SCROLL_READ_KEY = "feedhub.scrollRead";
 const scrollReadBox = document.getElementById("scrollRead");
 try { scrollReadBox.checked = localStorage.getItem(SCROLL_READ_KEY) === "1"; } catch { /* default off */ }
@@ -317,23 +321,46 @@ scrollReadBox.addEventListener("change", () => {
   render();
 });
 let readObserver = null;
+
+// Clear read: take read posts out of the list right now (they come back on Refresh unless Hide read is on).
+let clearReadNow = false;
+document.getElementById("clearRead").onclick = () => {
+  const before = feedsEl.querySelectorAll(".post.read").length;
+  clearReadNow = true;
+  render();
+  clearReadNow = false;
+  setStatus(before ? "Cleared " + before + " read post" + (before === 1 ? "" : "s") + "." : "No read posts to clear.");
+};
+
+// Back to top: shows after scrolling down a bit.
+const toTop = document.getElementById("toTop");
+window.addEventListener("scroll", () => { toTop.hidden = window.scrollY < 800 || feedsEl.className === "layout-swipe"; }, { passive: true });
+toTop.onclick = () => window.scrollTo({ top: 0, behavior: "smooth" });
 function watchForRead(list) {
   if (readObserver) readObserver.disconnect();
   readObserver = null;
   if (!scrollReadBox.checked || view === "saved" || !("IntersectionObserver" in window)) return;
   const swipe = feedsEl.className === "layout-swipe";
+  const timers = new Map();
   readObserver = new IntersectionObserver((entries) => {
     entries.forEach((en) => {
       const el = en.target;
-      if (en.isIntersecting && en.intersectionRatio >= 0.5) { el.dataset.seen = "1"; return; }
-      const rootTop = swipe ? list.getBoundingClientRect().top : 0;
-      if (!en.isIntersecting && el.dataset.seen && en.boundingClientRect.bottom <= rootTop + 1) {
-        markRead(el.dataset.link);
-        el.classList.add("read");
-        readObserver.unobserve(el);
+      if (en.isIntersecting && en.intersectionRatio >= 0.5) {
+        if (timers.has(el)) return;
+        timers.set(el, setTimeout(() => {
+          timers.delete(el);
+          markRead(el.dataset.link);
+          el.classList.add("read");
+          readObserver?.unobserve(el);
+        }, READ_DELAY_MS));
+      } else if (timers.has(el)) {
+        clearTimeout(timers.get(el)); // scrolled away too fast: not read
+        timers.delete(el);
       }
     });
   }, { root: swipe ? list : null, threshold: [0, 0.5] });
+  const stop = readObserver.disconnect.bind(readObserver);
+  readObserver.disconnect = () => { timers.forEach(clearTimeout); timers.clear(); stop(); };
   list.querySelectorAll(".post:not(.read)").forEach((el) => readObserver.observe(el));
 }
 
@@ -487,7 +514,7 @@ function renderPosts() {
     tops.sort((a, b) => byDate(a, b, 1));
     tops.forEach((p) => { p.pinned = true; });
     posts.splice(0, posts.length, ...tops, ...posts.filter((p) => !tops.includes(p)));
-    shown = hideReadBox.checked ? posts.filter((p) => !readLinks.has(p.link)) : posts;
+    shown = hideReadBox.checked || clearReadNow ? posts.filter((p) => !readLinks.has(p.link)) : posts;
     if (posts.length && !shown.length) {
       const done = document.createElement("p");
       done.className = "sub"; done.textContent = "You're all caught up. Turn off Hide read to see older posts.";
