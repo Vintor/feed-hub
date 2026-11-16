@@ -2,142 +2,272 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Feed Hub</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<meta name="theme-color" content="#2e7d5b">
+<meta name="theme-color" content="#FCF9F2">
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 760px; margin: 0 auto; padding: 20px 16px; background: #f6f7f5; color: #1f2a26; }
-  h1 { font-size: 1.6rem; margin: 0 0 4px; }
-  .sub { color: #5d6b65; margin: 0 0 16px; }
-  .add { display: flex; gap: 8px; flex-wrap: wrap; }
-  .add input { flex: 1; min-width: 220px; padding: 10px; font: inherit; border: 1px solid #c9d3ce; border-radius: 6px; }
-  .add button { font: inherit; padding: 10px 16px; border: 0; border-radius: 6px; background: #2e7d5b; color: #fff; cursor: pointer; }
-  .add button:disabled { opacity: .6; cursor: default; }
-  .tools { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-  .tools button { font: inherit; font-size: 13px; padding: 6px 12px; border: 1px solid #c9d3ce; border-radius: 6px; background: #fff; color: #1f2a26; cursor: pointer; }
-  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 6px 4px; cursor: pointer; }
-  .toggle select { font: inherit; font-size: 13px; padding: 4px 6px; border: 1px solid #c9d3ce; border-radius: 6px; background: #fff; }
-  .tools button:disabled { opacity: .6; cursor: default; }
-  .last { color: #5d6b65; font-size: 12px; align-self: center; }
-  .post.read { opacity: .55; }
-  .post.read .title::before { content: "Read · "; font-weight: 400; color: #5d6b65; }
-  .views { display: flex; align-items: center; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
-  .view-btn { font: inherit; font-size: 13px; font-weight: 600; padding: 5px 12px; border: 1px solid #c9d3ce; border-radius: 6px; background: #fff; color: #1f2a26; cursor: pointer; }
-  .view-btn[aria-pressed="true"] { background: #2e7d5b; border-color: #2e7d5b; color: #fff; }
-  .post .preview { display: none; color: #3d4a44; font-size: 14px; margin-top: 4px; line-height: 1.4; }
-  .layout-list .post { padding: 10px 12px; margin-bottom: 0; border-radius: 0; border-width: 0 0 1px; background: transparent; }
-  .layout-list .post img { display: none; }
-  .layout-list .post .preview { display: block; }
-  .layout-list .post .title { font-size: 15px; }
-  /* Grid view (#31): picture tiles, 2 across on a phone, 4 on a computer */
-  body:has(#feeds.layout-grid) { max-width: 1100px; }
-  .layout-grid .postlist { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-  @media (max-width: 700px) { .layout-grid .postlist { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
-  .layout-grid .post { flex-direction: column; gap: 6px; padding: 0 0 8px; margin: 0; overflow: hidden; position: relative; }
-  .layout-grid .post img, .layout-grid .post .noimg { width: 100%; border-radius: 0; }
-  .layout-grid .post .info { padding: 0 8px; }
-  .layout-grid .post .title { font-size: 14px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .layout-grid .post .date { font-size: 12px; }
-  .layout-grid .save { position: absolute; top: 6px; right: 6px; }
-  .post .noimg { display: none; }
-  .layout-grid .post .noimg { display: flex; align-items: center; justify-content: center; aspect-ratio: 16/9; background: #dfe6e2; color: #5d6b65; font-size: 28px; font-weight: 700; }
-  /* Swipe view (#32): one post fills the screen, swipe up for the next */
-  body:has(#feeds.layout-swipe) { overflow: hidden; }
-  .layout-swipe .postlist { position: fixed; inset: 0; z-index: 50; overflow-y: auto; scroll-snap-type: y mandatory; background: #111; overscroll-behavior: contain; }
-  .layout-swipe .post { height: 100%; margin: 0; border: 0; border-radius: 0; background: #111; color: #f2f5f3; flex-direction: column; justify-content: center; align-items: center; gap: 14px; padding: 56px 20px 32px; scroll-snap-align: start; scroll-snap-stop: always; position: relative; box-sizing: border-box; }
-  .layout-swipe .post img, .layout-swipe .post .noimg { display: flex; width: 100%; max-width: 900px; max-height: 58vh; object-fit: contain; border-radius: 8px; background: #000; }
-  .layout-swipe .post .noimg { align-items: center; justify-content: center; aspect-ratio: 16/9; color: #9aa8a1; font-size: 64px; font-weight: 700; background: #1f2724; }
-  .layout-swipe .post .info { max-width: 700px; width: 100%; }
-  .layout-swipe .post .title { font-size: 20px; }
-  .layout-swipe .post .date { color: #9aa8a1; font-size: 14px; }
-  .layout-swipe .post .preview { display: block; color: #cfd8d3; font-size: 15px; }
-  .layout-swipe .save { position: absolute; top: 14px; right: 14px; }
-  .layout-swipe .post.read { opacity: 1; }
-  #swipeExit { display: none; }
-  #feeds.layout-swipe + #swipeExit { display: block; position: fixed; z-index: 60; top: 12px; left: 12px; font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border: 1px solid #444; border-radius: 999px; background: #222; color: #fff; cursor: pointer; }
-  .share { font: inherit; font-size: 12px; align-self: flex-start; padding: 4px 10px; border: 1px solid #c9d3ce; border-radius: 999px; background: #fff; color: #1f2a26; cursor: pointer; flex-shrink: 0; }
-  .layout-grid .share { position: absolute; top: 6px; right: 62px; }
-  .layout-swipe .share { position: absolute; top: 14px; right: 76px; }
-  #shared { background: #fff; border: 2px solid #2e7d5b; border-radius: 10px; padding: 14px; margin: 10px 0; }
-  #shared .label { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #2e7d5b; }
-  #shared .stitle { font-weight: 700; font-size: 17px; margin: 4px 0 2px; }
-  #shared .ssrc { color: #5d6b65; font-size: 13px; margin-bottom: 10px; }
-  #shared .row { display: flex; gap: 8px; flex-wrap: wrap; }
-  #shared a, #shared button { font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 6px; cursor: pointer; text-decoration: none; }
-  #shared .primary { background: #2e7d5b; color: #fff; border: 0; }
-  #shared .plain { background: #fff; color: #1f2a26; border: 1px solid #c9d3ce; }
-  #toTop { position: fixed; z-index: 40; right: 16px; bottom: 16px; font: inherit; font-size: 13px; font-weight: 600; padding: 10px 14px; border: 0; border-radius: 999px; background: #1f2a26; color: #fff; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
-  .tabs { display: flex; gap: 4px; margin-top: 14px; border-bottom: 1px solid #d3dcd7; }
-  .tabs button { font: inherit; font-weight: 600; padding: 8px 14px; border: 0; border-bottom: 3px solid transparent; background: none; color: #5d6b65; cursor: pointer; }
-  .tabs button[aria-selected="true"] { color: #1f2a26; border-bottom-color: #2e7d5b; }
-  .post .info { flex: 1; min-width: 0; }
-  .save { font: inherit; font-size: 12px; align-self: flex-start; padding: 4px 10px; border: 1px solid #c9d3ce; border-radius: 999px; background: #fff; color: #1f2a26; cursor: pointer; flex-shrink: 0; }
-  .save.on { background: #2e7d5b; border-color: #2e7d5b; color: #fff; }
-  #status { min-height: 1.4em; margin: 10px 0; color: #5d6b65; }
-  #status.error { color: #a23b14; }
-  .folders { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; }
-  .folder { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border: 1px solid #c9d3ce; border-radius: 6px; background: #fff; color: #1f2a26; cursor: pointer; }
-  .folder.on { background: #1f2a26; border-color: #1f2a26; color: #fff; }
-  .pin { font: inherit; font-size: 12px; padding: 2px 8px; border: 1px solid #c9d3ce; border-radius: 999px; background: #fff; color: #1f2a26; cursor: pointer; }
-  .pin.on { background: #b5852a; border-color: #b5852a; color: #fff; }
-  .folder-pick { font: inherit; font-size: 12px; padding: 1px 2px; border: 1px solid #d3dcd7; border-radius: 6px; background: #f6f7f5; max-width: 120px; }
-  .following { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 14px; }
-  .following-label { color: #5d6b65; font-size: 13px; }
-  .chip { display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #d3dcd7; border-radius: 999px; padding: 3px 4px 3px 12px; font-size: 13px; font-weight: 600; }
-  .chip-error { border-color: #e2b39f; color: #a23b14; }
-  .remove { font: inherit; font-size: 12px; padding: 2px 8px; border: 1px solid #c9d3ce; border-radius: 999px; background: #fff; color: #a23b14; cursor: pointer; }
-  .remove:hover { border-color: #a23b14; }
-  .post { display: flex; gap: 12px; background: #fff; border: 1px solid #d3dcd7; border-radius: 8px; padding: 10px; margin-bottom: 8px; text-decoration: none; color: inherit; }
-  .post:hover { border-color: #2e7d5b; }
-  .post img { width: 140px; aspect-ratio: 16/9; object-fit: cover; border-radius: 4px; flex-shrink: 0; background: #e4e7e5; }
-  .post .title { font-weight: 700; }
-  .post .date { color: #5d6b65; font-size: 13px; margin-top: 4px; }
-  @media (max-width: 480px) { .post img { width: 100px; } }
+  /* Comfortable Reading: warm ivory page, serif headlines, one centered reading column. */
+  :root {
+    --bg: #FCF9F2;
+    --surface: #FFFDF8;
+    --ink: #302A23;
+    --muted: #796B5B;
+    --accent: #934731;
+    --accent-ink: #FFFFFF;
+    --line: #DFD6C9;
+    --soft: #F3EDE2;
+    --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --col: 680px;
+    --nav-h: 64px;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 17px; line-height: 1.5; padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 16px); }
+  button, input, select { font: inherit; color: inherit; }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  [hidden] { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+  .wrap { max-width: var(--col); margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+  /* Header */
+  .appbar { position: sticky; top: 0; z-index: 30; background: var(--bg); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px); }
+  .appbar .wrap { display: flex; align-items: center; gap: 8px; min-height: 60px; }
+  .appname { font-family: var(--serif); font-size: 26px; font-weight: 700; margin: 0; flex: 1; letter-spacing: -.01em; }
+  .iconbtn { width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 10px; background: transparent; cursor: pointer; color: var(--ink); }
+  .iconbtn:hover { background: var(--soft); }
+  .iconbtn:disabled { opacity: .45; cursor: default; }
+  .iconbtn svg { width: 26px; height: 26px; }
+
+  /* Row under the header: where you are + Story/List switch */
+  .context { display: flex; align-items: center; gap: 12px; padding-block: 14px 6px; flex-wrap: wrap; }
+  .context-name { flex: 1; min-width: 0; font-weight: 600; color: var(--muted); font-size: 16px; }
+  .context-name select { max-width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 10px; font-weight: 600; color: var(--ink); min-height: 44px; }
+  .segment { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; padding: 3px; background: var(--soft); }
+  .segment .view-btn { border: 0; background: transparent; padding: 8px 18px; min-height: 40px; border-radius: 8px; font-weight: 600; font-size: 16px; cursor: pointer; color: var(--muted); }
+  .segment .view-btn[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(48,42,35,.15); }
+
+  /* Shared-with-you card */
+  #shared { border: 1px solid var(--line); border-left: 4px solid var(--accent); background: var(--surface); border-radius: 10px; padding: 16px; margin: 10px 0 6px; }
+  #shared .label { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+  #shared .stitle { font-family: var(--serif); font-weight: 700; font-size: 22px; line-height: 1.25; margin: 6px 0 4px; }
+  #shared .ssrc { color: var(--muted); font-size: 15px; margin-bottom: 12px; }
+  #shared .row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 10px 18px; border-radius: 10px; font-size: 17px; font-weight: 600; text-decoration: none; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .btn.small { min-height: 40px; padding: 6px 14px; font-size: 15px; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn.danger { color: var(--accent); }
+
+  /* Notes inside the feed (empty states, failed sources) */
+  .note { color: var(--muted); font-size: 16px; margin: 14px 0; }
+  .note strong { color: var(--ink); }
+  .empty { text-align: center; padding: 40px 8px; }
+  .empty h2 { font-family: var(--serif); font-size: 28px; margin: 0 0 8px; color: var(--ink); }
+  .empty p { color: var(--muted); margin: 0 0 20px; }
+
+  /* Shared post bits */
+  .meta { font-size: 15px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 0 6px; }
+  .meta .dot::before { content: "·"; margin-right: 6px; }
+  .meta .tag { color: var(--accent); font-weight: 600; }
+  .headline { font-family: var(--serif); font-weight: 700; color: var(--ink); margin: 0; overflow-wrap: anywhere; }
+  .headline a { text-decoration: none; }
+  .headline a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  .preview { color: var(--ink); opacity: .86; font-size: 17.5px; line-height: 1.58; margin: 0; overflow-wrap: anywhere; }
+  .thumb { position: relative; display: block; border-radius: 10px; overflow: hidden; background: var(--soft); }
+  .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .play { position: absolute; left: 50%; top: 50%; width: 64px; height: 46px; transform: translate(-50%, -50%); background: rgba(48,42,35,.82); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+  .play::after { content: ""; border-style: solid; border-width: 11px 0 11px 18px; border-color: transparent transparent transparent #fff; margin-left: 4px; }
+  .save.on { background: var(--soft); border-color: var(--accent); color: var(--accent); }
+  .post.read .headline { color: var(--muted); }
+
+  /* Story view: one item at a time */
+  .layout-story .story { padding-block: 10px 8px; display: flex; flex-direction: column; gap: 16px; }
+  .layout-story .story .headline { font-size: 35px; line-height: 1.14; letter-spacing: -.01em; }
+  @media (min-width: 720px) { .layout-story .story .headline { font-size: 40px; } }
+  .layout-story .thumb { aspect-ratio: 16 / 9; }
+  .layout-story .actions-main { display: flex; flex-direction: column; gap: 10px; }
+  .layout-story .actions-main .primary { width: 100%; min-height: 54px; font-size: 18px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stepper { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 14px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
+  .stepper .count { text-align: center; color: var(--muted); font-size: 15px; font-variant-numeric: tabular-nums; }
+  .stepper .btn { min-width: 110px; }
+
+  /* List view: rows with dividers */
+  .postlist { list-style: none; margin: 0; padding: 0; }
+  .layout-list .row, .layout-grid .row { border-bottom: 1px solid var(--line); padding-block: 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; }
+  .layout-list .row .headline { font-size: 22px; line-height: 1.25; margin: 4px 0 6px; }
+  .layout-list .row .preview { font-size: 17px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .layout-list .row-thumb { width: 112px; aspect-ratio: 1; align-self: start; margin-top: 4px; }
+  @media (min-width: 600px) { .layout-list .row-thumb { width: 160px; aspect-ratio: 4 / 3; } }
+  .layout-list .row-thumb .play { width: 40px; height: 30px; border-radius: 8px; }
+  .layout-list .row-thumb .play::after { border-width: 7px 0 7px 12px; }
+  .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+  /* Picture grid (in More): tiles, 2 across on a phone, 3 on a computer */
+  .layout-grid .postlist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+  @media (min-width: 640px) { .layout-grid .postlist { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .layout-grid .row { grid-template-columns: 1fr; border-bottom: 0; padding-block: 0; gap: 8px; }
+  .layout-grid .row-thumb { order: -1; aspect-ratio: 16 / 9; }
+  .layout-grid .row .headline { font-size: 18px; line-height: 1.25; }
+  .layout-grid .row .preview { display: none; }
+  .layout-grid .meta { font-size: 14px; }
+  .layout-grid .row-actions .story-btn { display: none; }
+
+  /* Sources screen */
+  .screen-title { font-family: var(--serif); font-size: 30px; margin: 18px 0 4px; }
+  .screen-sub { color: var(--muted); margin: 0 0 18px; }
+  .add { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 16px; display: grid; gap: 10px; }
+  .add label { font-weight: 700; }
+  .add .line { display: flex; gap: 10px; flex-wrap: wrap; }
+  .add input { flex: 1; min-width: 200px; min-height: 50px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font-size: 17px; }
+  .add .hint { color: var(--muted); font-size: 15px; margin: 0; }
+  .section-h { font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 28px 0 6px; }
+  .sources { list-style: none; margin: 0; padding: 0; }
+  .chip { border-bottom: 1px solid var(--line); padding-block: 16px; display: grid; gap: 10px; }
+  .chip .sname { font-family: var(--serif); font-size: 21px; font-weight: 700; overflow-wrap: anywhere; }
+  .chip .sinfo { color: var(--muted); font-size: 15px; }
+  .chip.chip-error .sinfo { color: var(--accent); }
+  .chip .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .folder-pick { min-height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 6px 10px; font-size: 15px; max-width: 220px; }
+  .pin.on { background: var(--soft); border-color: var(--accent); color: var(--accent); }
+
+  /* Bottom navigation */
+  .bottomnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--bg); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .bottomnav .wrap { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .bottomnav button { min-height: var(--nav-h); border: 0; background: transparent; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--muted); font-size: 14px; font-weight: 600; }
+  .bottomnav button svg { width: 24px; height: 24px; }
+  .bottomnav button[aria-selected="true"] { color: var(--accent); }
+
+  /* Toast messages: never push the page around */
+  #status { position: fixed; z-index: 45; left: 50%; transform: translateX(-50%); bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 12px); width: min(560px, calc(100% - 32px)); background: var(--ink); color: #fff; border-radius: 10px; padding: 12px 16px; font-size: 16px; box-shadow: 0 4px 14px rgba(48,42,35,.25); }
+  #status:empty { display: none; }
+  #status.error { background: var(--accent); }
+  #toTop { position: fixed; z-index: 40; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 12px); }
+
+  /* More sheet */
+  dialog#moreSheet { border: 0; padding: 0; width: min(560px, 100%); max-height: 88vh; border-radius: 14px; background: var(--bg); color: var(--ink); box-shadow: 0 10px 40px rgba(48,42,35,.3); }
+  dialog#moreSheet::backdrop { background: rgba(48,42,35,.4); }
+  @media (max-width: 600px) { dialog#moreSheet { margin: auto 0 0; width: 100%; max-width: 100%; border-radius: 14px 14px 0 0; } }
+  .sheet { padding: 8px 20px 22px; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); margin: 0 -20px 6px; padding: 10px 20px; }
+  .sheet-head h2 { font-family: var(--serif); font-size: 24px; margin: 0; }
+  .setting { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .setting:last-child { border-bottom: 0; }
+  .setting .what { display: grid; }
+  .setting .what small { color: var(--muted); font-size: 14px; }
+  .setting input[type="checkbox"] { width: 26px; height: 26px; accent-color: var(--accent); flex-shrink: 0; }
+  .setting select { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 6px 10px; }
+  .layout-choices { display: flex; gap: 8px; flex-wrap: wrap; }
+  .layout-choices .view-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--soft); }
+  .last { color: var(--muted); font-size: 14px; margin: 12px 0 0; }
 </style>
 </head>
 <body>
-<h1>Feed Hub</h1>
-<p class="sub">Everything you follow, in one place.</p>
 
-<form class="add" id="addForm">
-  <input id="link" type="text" placeholder="Paste a link to follow" autocomplete="off">
-  <button id="addBtn" type="submit">Add</button>
-</form>
-<div class="tools">
-  <button id="exportBtn" type="button">Export my feeds</button>
-  <button id="importBtn" type="button">Import feeds</button>
-  <input id="importFile" type="file" accept=".opml,.xml,text/xml" hidden>
-  <label class="toggle"><input id="hideRead" type="checkbox"> Hide read</label>
-  <label class="toggle"><input id="scrollRead" type="checkbox"> Mark read as I scroll</label>
-  <button id="clearRead" type="button">Clear read</button>
-  <label class="toggle">Sort
-    <select id="sortBy">
-      <option value="newest">Newest first</option>
-      <option value="oldest">Oldest first</option>
-      <option value="source">By source</option>
-    </select>
-  </label>
-  <button id="refreshBtn" type="button">Refresh</button>
-  <span id="lastRefreshed" class="last"></span>
-</div>
-<div class="views" role="group" aria-label="View">
-  <span class="following-label">View:</span>
-  <button type="button" class="view-btn" data-layout="cards" aria-pressed="true">Cards</button>
-  <button type="button" class="view-btn" data-layout="list" aria-pressed="false">List</button>
-  <button type="button" class="view-btn" data-layout="grid" aria-pressed="false">Grid</button>
-  <button type="button" class="view-btn" data-layout="swipe" aria-pressed="false">Swipe</button>
-</div>
-<div class="tabs" role="tablist">
-  <button id="tabAll" type="button" role="tab" aria-selected="true">All</button>
-  <button id="tabSaved" type="button" role="tab" aria-selected="false">Saved</button>
-</div>
-<div id="status"></div>
-<div id="shared" hidden></div>
-<div id="feeds"></div>
-<button id="swipeExit" type="button">Exit swipe</button>
-<button id="toTop" type="button" hidden>Back to top</button>
+<header class="appbar">
+  <div class="wrap">
+    <h1 class="appname">Feed Hub</h1>
+    <button id="refreshBtn" class="iconbtn" type="button" aria-label="Refresh feeds" title="Refresh feeds">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+    </button>
+    <button id="moreBtn" class="iconbtn" type="button" aria-label="More options" title="More options" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- Reading screen (My feed and Saved) -->
+  <section id="readScreen">
+    <div class="context">
+      <div class="context-name" id="contextName">All your feeds</div>
+      <div class="segment" role="group" aria-label="View">
+        <button type="button" class="view-btn" data-layout="story" aria-pressed="false">Story</button>
+        <button type="button" class="view-btn" data-layout="list" aria-pressed="true">List</button>
+      </div>
+    </div>
+    <div id="shared" hidden></div>
+    <div id="feeds" class="layout-list"></div>
+  </section>
+
+  <!-- Sources screen -->
+  <section id="sourcesScreen" hidden>
+    <h2 class="screen-title">Sources</h2>
+    <p class="screen-sub">The channels, blogs, and news sites you follow.</p>
+    <form class="add" id="addForm">
+      <label for="link">Follow something new</label>
+      <div class="line">
+        <input id="link" type="text" inputmode="url" placeholder="Paste a website or YouTube link" autocomplete="off">
+        <button id="addBtn" class="btn primary" type="submit">Follow</button>
+      </div>
+      <p class="hint">Works with YouTube channels, blogs, news sites, podcasts, Substack, and Bluesky.</p>
+    </form>
+    <h3 class="section-h" id="sourcesHeading">You follow</h3>
+    <ul class="sources" id="sourceList"></ul>
+    <p class="note">To group sources, pick a folder from the menu on each one. Then choose the folder at the top of My feed.</p>
+  </section>
+</main>
+
+<button id="toTop" class="btn small" type="button" hidden>Back to top</button>
+<div id="status" role="status" aria-live="polite"></div>
+
+<nav class="bottomnav" aria-label="Main">
+  <div class="wrap" role="tablist">
+    <button id="tabAll" type="button" role="tab" aria-selected="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      My feed
+    </button>
+    <button id="tabSaved" type="button" role="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+      Saved
+    </button>
+    <button id="tabSources" type="button" role="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="19" r="1.6" fill="currentColor"/><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/></svg>
+      Sources
+    </button>
+  </div>
+</nav>
+
+<dialog id="moreSheet" aria-labelledby="moreTitle">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="moreTitle">More</h2>
+      <button id="moreClose" class="btn small" type="button">Done</button>
+    </div>
+    <h3 class="section-h">Reading</h3>
+    <label class="setting"><span class="what">Order<small>How posts are lined up</small></span>
+      <select id="sortBy">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="source">By source</option>
+      </select>
+    </label>
+    <label class="setting"><span class="what">Hide posts I've read<small>Keeps My feed short</small></span><input id="hideRead" type="checkbox"></label>
+    <label class="setting"><span class="what">Mark read as I scroll<small>After a post is on screen for 3 seconds</small></span><input id="scrollRead" type="checkbox"></label>
+    <div class="setting"><span class="what">Clear read posts<small>Takes them out of the list for now</small></span><button id="clearRead" class="btn small" type="button">Clear read</button></div>
+    <h3 class="section-h">Layout</h3>
+    <div class="setting"><div class="layout-choices" role="group" aria-label="Layout">
+      <button type="button" class="btn small view-btn" data-layout="story" aria-pressed="false">Story</button>
+      <button type="button" class="btn small view-btn" data-layout="list" aria-pressed="true">List</button>
+      <button type="button" class="btn small view-btn" data-layout="grid" aria-pressed="false">Picture grid</button>
+    </div></div>
+    <h3 class="section-h">Your source list</h3>
+    <div class="setting"><span class="what">Save a copy<small>An .opml file other feed readers understand</small></span><button id="exportBtn" class="btn small" type="button">Export</button></div>
+    <div class="setting"><span class="what">Load a copy<small>From Feed Hub or another feed reader</small></span><button id="importBtn" class="btn small" type="button">Import</button></div>
+    <input id="importFile" type="file" accept=".opml,.xml,text/xml" hidden>
+    <p id="lastRefreshed" class="last"></p>
+  </div>
+</dialog>
 
 <script>
 // Dan's helper on Cloudflare (#8). Browsers can't read feed sites directly.
@@ -146,10 +276,15 @@ const HELPER = "https://feedhub-helper.dan-brisco.workers.dev/?url=";
 const statusEl = document.getElementById("status");
 const feedsEl = document.getElementById("feeds");
 
+// Messages show as a toast above the bottom bar so they never push the page around.
+let statusTimer = null;
 function setStatus(text, isError) {
+  clearTimeout(statusTimer);
   statusEl.textContent = text;
   statusEl.className = isError ? "error" : "";
+  if (text && !/\.\.\.$/.test(text)) statusTimer = setTimeout(() => { statusEl.textContent = ""; }, isError ? 9000 : 5000);
 }
+statusEl.addEventListener("click", () => { statusEl.textContent = ""; });
 
 async function getText(url) {
   const res = await fetch(HELPER + encodeURIComponent(url));
@@ -197,10 +332,18 @@ async function findFeed(link, html) {
   return null;
 }
 
-// Short plain-text preview for List view (#30): strip HTML, keep about 2 lines.
+// Short plain-text preview: strip HTML, keep a few lines.
 function makePreview(html) {
   const text = (new DOMParser().parseFromString(html || "", "text/html").body.textContent || "").replace(/\s+/g, " ").trim();
-  return text.length > 180 ? text.slice(0, 177).replace(/\s+\S*$/, "") + "..." : text;
+  return text.length > 260 ? text.slice(0, 257).replace(/\s+\S*$/, "") + "..." : text;
+}
+
+// What kind of item is this? Decides the button label: Watch video, Listen, or Read article.
+function kindOf(link, enclosureType) {
+  if (/youtube\.com\/(watch|shorts)|youtu\.be\//i.test(link || "")) return "video";
+  if (/^audio\//i.test(enclosureType || "")) return "audio";
+  if (/^video\//i.test(enclosureType || "")) return "video";
+  return "article";
 }
 
 function parseFeed(text) {
@@ -211,16 +354,24 @@ function parseFeed(text) {
   const pick = (el, sel) => el.querySelector(sel)?.textContent?.trim() || "";
   return {
     title: pick(xml, "channel > title") || pick(xml, "feed > title") || "Feed",
-    posts: items.map((it) => ({
-      title: pick(it, "title") || "(no title)",
-      link: it.querySelector("link")?.getAttribute("href") || pick(it, "link"),
-      date: new Date(pick(it, "published") || pick(it, "pubDate") || pick(it, "updated")),
-      thumb: [...it.getElementsByTagName("media:thumbnail")][0]?.getAttribute("url") || "",
-      preview: makePreview(
-        pick(it, "description") || pick(it, "summary") || pick(it, "content") ||
-        ([...it.getElementsByTagName("media:description")][0]?.textContent || "")
-      )
-    }))
+    posts: items.map((it) => {
+      const link = it.querySelector("link")?.getAttribute("href") || pick(it, "link");
+      const enc = it.querySelector("enclosure");
+      const encImg = /^image\//i.test(enc?.getAttribute("type") || "") ? enc.getAttribute("url") : "";
+      return {
+        title: pick(it, "title") || "(no title)",
+        link,
+        date: new Date(pick(it, "published") || pick(it, "pubDate") || pick(it, "updated")),
+        thumb: [...it.getElementsByTagName("media:thumbnail")][0]?.getAttribute("url") ||
+          [...it.getElementsByTagName("media:content")].find((m) => /^image\//i.test(m.getAttribute("type") || "") || /\.(jpe?g|png|webp)(\?|$)/i.test(m.getAttribute("url") || ""))?.getAttribute("url") ||
+          encImg || "",
+        kind: kindOf(link, enc?.getAttribute("type")),
+        preview: makePreview(
+          pick(it, "description") || pick(it, "summary") || pick(it, "content") ||
+          ([...it.getElementsByTagName("media:description")][0]?.textContent || "")
+        )
+      };
+    })
   };
 }
 
@@ -257,8 +408,9 @@ try { savedPosts = JSON.parse(localStorage.getItem(SAVED_KEY)) || []; } catch { 
 const isSaved = (link) => savedPosts.some((s) => s.link === link);
 function toggleSave(p) {
   if (isSaved(p.link)) savedPosts = savedPosts.filter((s) => s.link !== p.link);
-  else savedPosts.unshift({ title: p.title, link: p.link, date: isNaN(p.date) ? "" : p.date.toISOString(), thumb: p.thumb, source: p.source, preview: p.preview });
+  else savedPosts.unshift({ title: p.title, link: p.link, date: isNaN(p.date) ? "" : p.date.toISOString(), thumb: p.thumb, source: p.source, preview: p.preview, kind: p.kind, feedUrl: p.feedUrl });
   try { localStorage.setItem(SAVED_KEY, JSON.stringify(savedPosts)); } catch { setStatus("Couldn't save that post in this browser.", true); }
+  setStatus(isSaved(p.link) ? "Saved. Find it under Saved." : "Removed from Saved.");
 }
 
 // Sort choice (#29), remembered between visits.
@@ -270,48 +422,65 @@ sortBox.addEventListener("change", () => {
   render();
 });
 
-// Layout switch (#30): Cards (pictures) or List (text first).
-document.querySelectorAll(".view-btn").forEach((btn) => {
-  btn.onclick = () => {
-    document.querySelectorAll(".view-btn").forEach((b) => b.setAttribute("aria-pressed", b === btn));
-    feedsEl.className = "layout-" + btn.dataset.layout;
-    if (btn.dataset.layout === "swipe") feedsEl.querySelector(".postlist")?.scrollTo(0, 0);
-    const pl = feedsEl.querySelector(".postlist");
-    if (pl) watchForRead(pl); // swipe scrolls inside its own box, so re-aim the watcher
-    try { localStorage.setItem(LAYOUT_KEY, btn.dataset.layout); } catch { /* non-fatal */ }
-  };
-});
-
-// Remember my last view (#33): reopen in whichever view was picked last.
+// Layout: Story (one at a time), List, or Picture grid. Remembered between visits (#33).
+// Older saved choices: "swipe" becomes Story, "cards" becomes List.
 const LAYOUT_KEY = "feedhub.layout";
+let layout = "list";
 try {
   const last = localStorage.getItem(LAYOUT_KEY);
-  if (last) document.querySelector('.view-btn[data-layout="' + last + '"]')?.click();
-} catch { /* default Cards */ }
+  layout = ({ swipe: "story", cards: "list" })[last] || (["story", "list", "grid"].includes(last) ? last : "list");
+} catch { /* default List */ }
+let storyLink = "";   // the post Story view is showing, so switching views keeps your place
 
-// Swipe view: Exit button, Esc to leave, arrow keys move one post on a computer.
-const exitSwipe = () => document.querySelector('.view-btn[data-layout="cards"]').click();
-document.getElementById("swipeExit").onclick = exitSwipe;
-document.addEventListener("keydown", (e) => {
-  if (feedsEl.className !== "layout-swipe") return;
-  const list = feedsEl.querySelector(".postlist");
-  if (e.key === "Escape") exitSwipe();
-  else if (list && ["ArrowDown", "PageDown", " "].includes(e.key)) { e.preventDefault(); list.scrollBy({ top: list.clientHeight, behavior: "smooth" }); }
-  else if (list && ["ArrowUp", "PageUp"].includes(e.key)) { e.preventDefault(); list.scrollBy({ top: -list.clientHeight, behavior: "smooth" }); }
-});
-
-let view = "all";
-function setView(v) {
-  view = v;
-  document.getElementById("tabAll").setAttribute("aria-selected", v === "all");
-  document.getElementById("tabSaved").setAttribute("aria-selected", v === "saved");
+function setLayout(next) {
+  if (next === layout) return;
+  // Keep your place: List -> Story starts at the first post on screen.
+  if (next === "story" && layout !== "story") {
+    const top = document.querySelector(".appbar").getBoundingClientRect().bottom;
+    const first = [...feedsEl.querySelectorAll(".post")].find((el) => el.getBoundingClientRect().bottom > top + 40);
+    if (first) storyLink = first.dataset.link;
+  }
+  layout = next;
+  try { localStorage.setItem(LAYOUT_KEY, layout); } catch { /* non-fatal */ }
   render();
+  // Story -> List: scroll to the post you were on.
+  if (layout !== "story" && storyLink) {
+    const el = [...feedsEl.querySelectorAll(".post")].find((x) => x.dataset.link === storyLink);
+    if (el) el.scrollIntoView({ block: "center" });
+  } else window.scrollTo(0, 0);
+}
+document.querySelectorAll(".view-btn").forEach((btn) => { btn.onclick = () => setLayout(btn.dataset.layout); });
+
+// Screens: My feed, Saved, Sources (bottom bar).
+let view = "all";        // "all" or "saved"
+let screen = "read";     // "read" or "sources"
+function setView(v) {
+  view = v; screen = "read";
+  syncScreens(); render(); window.scrollTo(0, 0);
+}
+function showSources() {
+  screen = "sources";
+  syncScreens(); renderSources(); window.scrollTo(0, 0);
+}
+function syncScreens() {
+  document.getElementById("readScreen").hidden = screen !== "read";
+  document.getElementById("sourcesScreen").hidden = screen !== "sources";
+  document.getElementById("tabAll").setAttribute("aria-selected", screen === "read" && view === "all");
+  document.getElementById("tabSaved").setAttribute("aria-selected", screen === "read" && view === "saved");
+  document.getElementById("tabSources").setAttribute("aria-selected", screen === "sources");
+  toTop.hidden = true;
 }
 document.getElementById("tabAll").onclick = () => setView("all");
 document.getElementById("tabSaved").onclick = () => setView("saved");
+document.getElementById("tabSources").onclick = showSources;
+
+// More sheet
+const moreSheet = document.getElementById("moreSheet");
+document.getElementById("moreBtn").onclick = () => { if (moreSheet.showModal) moreSheet.showModal(); else moreSheet.setAttribute("open", ""); };
+document.getElementById("moreClose").onclick = () => moreSheet.close ? moreSheet.close() : moreSheet.removeAttribute("open");
+moreSheet.addEventListener("click", (e) => { if (e.target === moreSheet) moreSheet.close(); }); // tap outside to close
 
 // Mark read as I scroll: a post counts as read once at least half of it stays on screen for 3 seconds.
-// Works for the last posts too (no need to scroll past). It only fades (no jumping); "Clear read" removes them.
 const READ_DELAY_MS = 3000;
 const SCROLL_READ_KEY = "feedhub.scrollRead";
 const scrollReadBox = document.getElementById("scrollRead");
@@ -321,26 +490,28 @@ scrollReadBox.addEventListener("change", () => {
   render();
 });
 let readObserver = null;
+let storyReadTimer = null;
 
 // Clear read: take read posts out of the list right now (they come back on Refresh unless Hide read is on).
 let clearReadNow = false;
 document.getElementById("clearRead").onclick = () => {
-  const before = feedsEl.querySelectorAll(".post.read").length;
+  const before = currentPosts().filter((p) => readLinks.has(p.link)).length;
   clearReadNow = true;
   render();
   clearReadNow = false;
+  moreSheet.close?.();
   setStatus(before ? "Cleared " + before + " read post" + (before === 1 ? "" : "s") + "." : "No read posts to clear.");
 };
 
-// Back to top: shows after scrolling down a bit.
+// Back to top: shows in List after scrolling down a bit.
 const toTop = document.getElementById("toTop");
-window.addEventListener("scroll", () => { toTop.hidden = window.scrollY < 800 || feedsEl.className === "layout-swipe"; }, { passive: true });
+window.addEventListener("scroll", () => { toTop.hidden = window.scrollY < 800 || layout === "story" || screen !== "read"; }, { passive: true });
 toTop.onclick = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
 function watchForRead(list) {
   if (readObserver) readObserver.disconnect();
   readObserver = null;
   if (!scrollReadBox.checked || view === "saved" || !("IntersectionObserver" in window)) return;
-  const swipe = feedsEl.className === "layout-swipe";
   const timers = new Map();
   readObserver = new IntersectionObserver((entries) => {
     entries.forEach((en) => {
@@ -358,14 +529,15 @@ function watchForRead(list) {
         timers.delete(el);
       }
     });
-  }, { root: swipe ? list : null, threshold: [0, 0.5] });
+  }, { threshold: [0, 0.5] });
   const stop = readObserver.disconnect.bind(readObserver);
   readObserver.disconnect = () => { timers.forEach(clearTimeout); timers.clear(); stop(); };
   list.querySelectorAll(".post:not(.read)").forEach((el) => readObserver.observe(el));
 }
 
-// Feeds loaded this session. The page shows them as one combined list (#24).
+// Feeds loaded this session.
 const loaded = [];
+let loadingFirstTime = true;
 
 function showFeed(feed, atEnd) {
   if (atEnd) loaded.push(feed); else loaded.unshift(feed);
@@ -373,7 +545,8 @@ function showFeed(feed, atEnd) {
 }
 
 function removeFeed(feed) {
-  loaded.splice(loaded.indexOf(feed), 1);
+  const i = loaded.indexOf(feed);
+  if (i >= 0) loaded.splice(i, 1);
   saveFeeds(loadSaved().filter((f) => f.url !== feed.url));
   render();
   setStatus("Removed " + feed.title + ".");
@@ -389,6 +562,7 @@ const allFolders = () => [...new Set(loadSaved().map((f) => f.folder).filter(Boo
 function setActiveFolder(name) {
   activeFolder = name;
   try { localStorage.setItem(FOLDER_KEY, name); } catch { /* non-fatal */ }
+  storyLink = "";
   render();
 }
 
@@ -408,155 +582,314 @@ function togglePin(feed) {
   setStatus(on ? "Pinned " + feed.title + ". Its newest post stays on top." : "Unpinned " + feed.title + ".");
 }
 
-function render() {
-  feedsEl.innerHTML = "";
-  if (!loaded.length) { if (view === "saved") renderPosts(); return; }
+// ---------- Building the list of posts ----------
+const time = (p) => (isNaN(p.date) ? null : p.date.getTime());
+const byDate = (a, b, dir) => {
+  const ta = time(a), tb = time(b);
+  if (ta === null || tb === null) return (ta === null) - (tb === null);
+  return dir * (tb - ta);
+};
 
-  // Folder bar: tap a folder to see only its feeds
+function currentPosts() {
+  if (view === "saved") return savedPosts.map((s) => ({ ...s, date: new Date(s.date), kind: s.kind || kindOf(s.link) }));
+  const inView = activeFolder ? loaded.filter((feed) => folderOf(feed.url) === activeFolder) : loaded;
+  const posts = inView.flatMap((feed) => (feed.posts || []).map((p) => ({ ...p, source: feed.title, feedUrl: feed.url })));
+  const sort = sortBox.value;
+  if (sort === "oldest") posts.sort((a, b) => byDate(a, b, -1));
+  else if (sort === "source") posts.sort((a, b) => a.source.localeCompare(b.source) || byDate(a, b, 1));
+  else posts.sort((a, b) => byDate(a, b, 1));
+  // Pinned feeds: lift each one's newest post to the top, newest pin first.
+  const tops = inView.filter((feed) => isPinned(feed.url)).map((feed) => {
+    const own = posts.filter((p) => p.feedUrl === feed.url);
+    own.sort((a, b) => byDate(a, b, 1));
+    return own[0];
+  }).filter(Boolean);
+  tops.sort((a, b) => byDate(a, b, 1));
+  tops.forEach((p) => { p.pinned = true; });
+  return [...tops, ...posts.filter((p) => !tops.includes(p))];
+}
+
+// "2 hours ago", "Yesterday", or a date.
+function whenText(d) {
+  if (isNaN(d)) return "";
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return mins + " min ago";
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return hrs + (hrs === 1 ? " hour ago" : " hours ago");
+  const days = Math.round(hrs / 24);
+  if (days === 1) return "Yesterday";
+  if (days < 7) return days + " days ago";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: d.getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+}
+const KIND_LABEL = { video: "Video", audio: "Podcast", article: "Article" };
+const ACTION_LABEL = { video: "Watch video", audio: "Listen", article: "Read article" };
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+function metaLine(p) {
+  const m = el("div", "meta");
+  if (p.pinned) m.append(el("span", "tag", "Pinned"));
+  m.append(el("span", p.pinned ? "dot" : "", p.source || "Feed"));
+  const w = whenText(p.date);
+  if (w) m.append(el("span", "dot", w));
+  m.append(el("span", "dot", KIND_LABEL[p.kind] || "Article"));
+  if (readLinks.has(p.link)) m.append(el("span", "dot", "Read"));
+  return m;
+}
+
+function thumbLink(p, cls) {
+  const a = el("a", "thumb " + cls);
+  a.href = p.link; a.target = "_blank"; a.rel = "noopener";
+  a.setAttribute("aria-label", (ACTION_LABEL[p.kind] || "Open") + ": " + p.title);
+  const img = el("img"); img.src = p.thumb; img.alt = ""; img.loading = "lazy";
+  img.onerror = () => a.remove(); // a broken picture just disappears
+  a.append(img);
+  if (p.kind === "video") a.append(el("span", "play"));
+  a.addEventListener("click", () => opened(p));
+  return a;
+}
+
+// Save and Share never open the post.
+function saveButton(p, cls) {
+  const b = el("button", "btn save " + (cls || ""));
+  b.type = "button";
+  const paint = () => { const on = isSaved(p.link); b.classList.toggle("on", on); b.textContent = on ? "Saved" : "Save"; b.setAttribute("aria-pressed", on); };
+  paint();
+  b.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    toggleSave(p);
+    if (view === "saved") render(); else paint();
+  });
+  return b;
+}
+function shareButton(p, cls) {
+  const b = el("button", "btn share " + (cls || ""), "Share");
+  b.type = "button";
+  b.setAttribute("aria-label", "Share " + p.title);
+  b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); sharePost(p); });
+  return b;
+}
+
+function opened(p) {
+  markRead(p.link);
+  feedsEl.querySelectorAll(".post").forEach((x) => { if (x.dataset.link === p.link) x.classList.add("read"); });
+}
+
+// ---------- Drawing the screens ----------
+function render() {
+  renderContext();
+  renderPosts();
+  if (screen === "sources") renderSources();
+  document.querySelectorAll(".view-btn").forEach((b) => b.setAttribute("aria-pressed", b.dataset.layout === layout));
+}
+
+// "All your feeds" / folder chooser / "Saved for later"
+function renderContext() {
+  const box = document.getElementById("contextName");
+  box.innerHTML = "";
+  if (view === "saved") { box.textContent = "Saved for later"; return; }
   const folders = allFolders();
   if (activeFolder && !folders.includes(activeFolder)) activeFolder = "";
-  if (folders.length) {
-    const fbar = document.createElement("div");
-    fbar.className = "folders";
-    [["", "All feeds"], ...folders.map((f) => [f, f])].forEach(([value, text]) => {
-      const b = document.createElement("button");
-      b.type = "button"; b.textContent = text;
-      b.className = "folder" + (activeFolder === value ? " on" : "");
-      b.setAttribute("aria-pressed", activeFolder === value);
-      b.onclick = () => setActiveFolder(value);
-      fbar.appendChild(b);
-    });
-    feedsEl.appendChild(fbar);
+  if (!folders.length) { box.textContent = "All your feeds"; return; }
+  const sel = el("select", "folder");
+  sel.id = "folderView";
+  sel.setAttribute("aria-label", "Show feeds from");
+  [["", "All your feeds"], ...folders.map((f) => [f, f])].forEach(([v, t]) => {
+    const o = el("option", "", t); o.value = v; o.selected = v === activeFolder; sel.append(o);
+  });
+  sel.onchange = () => setActiveFolder(sel.value);
+  box.append(sel);
+}
+
+function renderPosts() {
+  if (readObserver) readObserver.disconnect();
+  clearTimeout(storyReadTimer);
+  feedsEl.innerHTML = "";
+  feedsEl.className = "layout-" + layout;
+
+  if (view === "all") {
+    if (!loadSaved().length) {
+      const e = el("div", "empty");
+      e.append(el("h2", "", "Welcome to Feed Hub"), el("p", "", "Follow a few YouTube channels, blogs, or news sites. Their newest posts will show up here."));
+      const go = el("button", "btn primary", "Add your first source"); go.type = "button"; go.onclick = showSources;
+      e.append(go); feedsEl.append(e); return;
+    }
+    if (loadingFirstTime && !loaded.length) { feedsEl.append(el("p", "note", "Loading your feeds...")); return; }
+    const failed = loaded.filter((f) => f.error);
+    if (failed.length) {
+      const n = el("p", "note");
+      n.append(el("strong", "", failed.length + (failed.length === 1 ? " source" : " sources") + " couldn't load right now. "));
+      const l = el("a", "", "See Sources"); l.href = "#"; l.onclick = (e) => { e.preventDefault(); showSources(); };
+      n.append(l); feedsEl.append(n);
+    }
   }
 
-  // Following bar: every feed, with its folder menu and Remove button
-  const bar = document.createElement("div");
-  bar.className = "following";
-  const label = document.createElement("span");
-  label.className = "following-label"; label.textContent = "Following:";
-  bar.appendChild(label);
+  const all = currentPosts();
+  // Hide read keeps the story you're on, so it doesn't vanish while you look at it.
+  const keep = (p) => !readLinks.has(p.link) || (layout === "story" && !clearReadNow && p.link === storyLink);
+  const shown = hideReadBox.checked || clearReadNow ? all.filter(keep) : all;
+  if (!shown.length) {
+    const e = el("div", "empty");
+    if (view === "saved") e.append(el("h2", "", "Nothing saved yet"), el("p", "", "Tap Save on any post to keep it here."));
+    else if (all.length) e.append(el("h2", "", "You're all caught up"), el("p", "", "You've read everything here. Turn off \"Hide posts I've read\" in More to see older posts."));
+    else e.append(el("h2", "", "No posts yet"), el("p", "", "Try Refresh, or follow more sources."));
+    feedsEl.append(e); return;
+  }
+  if (layout === "story") renderStory(shown); else renderList(shown);
+}
+
+function renderList(shown) {
+  const list = el("ol", "postlist");
+  shown.forEach((p, i) => {
+    const row = el("li", "row post" + (readLinks.has(p.link) ? " read" : ""));
+    row.dataset.link = p.link;
+    const main = el("div", "row-main");
+    main.append(metaLine(p));
+    const h = el("h3", "headline");
+    const a = el("a", "", p.title); a.href = p.link; a.target = "_blank"; a.rel = "noopener";
+    a.addEventListener("click", () => opened(p));
+    h.append(a); main.append(h);
+    if (p.preview) main.append(el("p", "preview", p.preview));
+    const acts = el("div", "row-actions");
+    const st = el("button", "btn small story-btn", "Read in Story"); st.type = "button";
+    st.addEventListener("click", () => {
+      storyLink = p.link; layout = "story";
+      try { localStorage.setItem(LAYOUT_KEY, layout); } catch { /* non-fatal */ }
+      render(); window.scrollTo(0, 0);
+    });
+    acts.append(saveButton(p, "small"), shareButton(p, "small"), st);
+    main.append(acts);
+    row.append(main);
+    if (p.thumb) row.append(thumbLink(p, "row-thumb"));
+    list.append(row);
+  });
+  feedsEl.append(list);
+  watchForRead(list);
+}
+
+function renderStory(shown) {
+  let i = Math.max(0, shown.findIndex((p) => p.link === storyLink));
+  const p = shown[i];
+  storyLink = p.link;
+  const card = el("article", "story post" + (readLinks.has(p.link) ? " read" : ""));
+  card.dataset.link = p.link;
+  card.append(metaLine(p));
+  const h = el("h2", "headline", p.title);
+  card.append(h);
+  if (p.thumb) card.append(thumbLink(p, ""));
+  if (p.preview) card.append(el("p", "preview", p.preview));
+  const acts = el("div", "actions-main");
+  const go = el("a", "btn primary", ACTION_LABEL[p.kind] || "Read post");
+  go.href = p.link; go.target = "_blank"; go.rel = "noopener";
+  go.addEventListener("click", () => opened(p));
+  const pair = el("div", "pair");
+  pair.append(saveButton(p), shareButton(p));
+  acts.append(go, pair);
+  card.append(acts);
+
+  const step = el("nav", "stepper"); step.setAttribute("aria-label", "Story navigation");
+  const prev = el("button", "btn", "Previous"); prev.type = "button"; prev.disabled = i === 0;
+  const next = el("button", "btn", "Next story"); next.type = "button"; next.disabled = i === shown.length - 1;
+  prev.onclick = () => goStory(-1);
+  next.onclick = () => goStory(1);
+  step.append(prev, el("span", "count", (i + 1) + " of " + shown.length), next);
+  card.append(step);
+  feedsEl.append(card);
+
+  // Mark read as I scroll: Story counts it after 3 seconds on screen.
+  if (scrollReadBox.checked && view !== "saved" && !readLinks.has(p.link)) {
+    storyReadTimer = setTimeout(() => { markRead(p.link); card.classList.add("read"); }, READ_DELAY_MS);
+  }
+}
+
+function goStory(step) {
+  if (layout !== "story" || screen !== "read") return;
+  const all = currentPosts();
+  const shown = hideReadBox.checked ? all.filter((p) => !readLinks.has(p.link) || p.link === storyLink) : all;
+  const i = shown.findIndex((p) => p.link === storyLink);
+  const j = Math.min(shown.length - 1, Math.max(0, (i < 0 ? 0 : i) + step));
+  if (j === i) return;
+  storyLink = shown[j].link;
+  render();
+  window.scrollTo(0, 0);
+}
+
+// Story: swipe up for next, down for previous (only at the end/top of the page, so normal scrolling still works).
+let touchY = null, touchX = null;
+feedsEl.addEventListener("touchstart", (e) => { touchY = e.touches[0].clientY; touchX = e.touches[0].clientX; }, { passive: true });
+feedsEl.addEventListener("touchend", (e) => {
+  if (layout !== "story" || touchY === null) return;
+  const dy = e.changedTouches[0].clientY - touchY, dx = e.changedTouches[0].clientX - touchX;
+  touchY = null;
+  if (Math.abs(dy) < 70 || Math.abs(dy) < Math.abs(dx) * 1.5) return;
+  const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+  if (dy < 0 && atBottom) goStory(1);
+  else if (dy > 0 && window.scrollY <= 0) goStory(-1);
+}, { passive: true });
+
+// Story: keyboard (right/left arrows, or J/K).
+document.addEventListener("keydown", (e) => {
+  if (layout !== "story" || screen !== "read" || moreSheet.open) return;
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || "")) return;
+  if (e.key === "ArrowRight" || e.key === "j") { e.preventDefault(); goStory(1); }
+  else if (e.key === "ArrowLeft" || e.key === "k") { e.preventDefault(); goStory(-1); }
+});
+
+// Sources screen: follow, folders, pin, share, remove.
+function renderSources() {
+  const listEl = document.getElementById("sourceList");
+  listEl.innerHTML = "";
+  const saved = loadSaved();
+  const folders = allFolders();
+  document.getElementById("sourcesHeading").textContent = saved.length ? "You follow " + saved.length + (saved.length === 1 ? " source" : " sources") : "You don't follow anything yet";
   // Grouped: feeds with no folder first, then each folder A to Z (same order export uses).
-  const grouped = [...loaded.filter((f) => !folderOf(f.url)), ...folders.flatMap((name) => loaded.filter((f) => folderOf(f.url) === name))];
-  grouped.forEach((feed) => {
-    const chip = document.createElement("span");
-    chip.className = "chip" + (feed.error ? " chip-error" : "");
-    chip.title = feed.error ? "Couldn't load this feed right now: " + feed.error : "";
-    chip.textContent = feed.title + (feed.error ? " (not loading)" : "");
-    const pick = document.createElement("select");
-    pick.className = "folder-pick";
+  const grouped = [...saved.filter((f) => !f.folder), ...folders.flatMap((name) => saved.filter((f) => f.folder === name))];
+  grouped.forEach((s) => {
+    const feed = loaded.find((f) => f.url === s.url) || { url: s.url, title: s.title, posts: [] };
+    const li = el("li", "chip" + (feed.error ? " chip-error" : ""));
+    li.append(el("div", "sname", feed.title || s.title));
+    const bits = [];
+    if (feed.error) bits.push("Couldn't load right now: " + feed.error);
+    else if (feed.posts?.length) bits.push(feed.posts.length + " recent posts");
+    if (s.folder) bits.push("Folder: " + s.folder);
+    if (s.pinned) bits.push("Pinned to top");
+    li.append(el("div", "sinfo", bits.join(" · ") || "Loading..."));
+
+    const ctl = el("div", "controls");
+    const pick = el("select", "folder-pick");
     pick.setAttribute("aria-label", "Folder for " + feed.title);
-    const current = folderOf(feed.url);
-    [["", "No folder"], ...folders.map((f) => [f, f]), ["__new", "+ New folder..."]].forEach(([value, text]) => {
-      const o = document.createElement("option");
-      o.value = value; o.textContent = text; o.selected = value === current;
-      pick.appendChild(o);
+    [["", "No folder"], ...folders.map((f) => [f, f]), ["__new", "New folder..."]].forEach(([value, text]) => {
+      const o = el("option", "", text); o.value = value; o.selected = value === (s.folder || ""); pick.append(o);
     });
     pick.onchange = () => {
       if (pick.value !== "__new") return setFolder(feed, pick.value);
       const name = (window.prompt("Name the new folder:", "") || "").trim();
-      if (name) setFolder(feed, name); else pick.value = current;
+      if (name) setFolder(feed, name); else pick.value = s.folder || "";
     };
-    chip.appendChild(pick);
-    const pin = document.createElement("button");
-    const pinned = isPinned(feed.url);
-    pin.type = "button"; pin.className = "pin" + (pinned ? " on" : "");
-    pin.textContent = pinned ? "Pinned" : "Pin";
-    pin.setAttribute("aria-pressed", pinned);
-    pin.setAttribute("aria-label", (pinned ? "Unpin " : "Pin ") + feed.title);
+    const pin = el("button", "btn small pin" + (s.pinned ? " on" : ""), s.pinned ? "Pinned" : "Pin to top");
+    pin.type = "button"; pin.setAttribute("aria-pressed", !!s.pinned);
     pin.onclick = () => togglePin(feed);
-    chip.appendChild(pin);
-    const shf = document.createElement("button");
-    shf.type = "button"; shf.className = "pin"; shf.textContent = "Share";
+    const shf = el("button", "btn small", "Share"); shf.type = "button";
     shf.setAttribute("aria-label", "Share the feed " + feed.title);
     shf.onclick = () => shareFeed(feed);
-    chip.appendChild(shf);
-    const rm = document.createElement("button");
-    rm.type = "button"; rm.className = "remove"; rm.textContent = "Remove";
+    // Remove asks once more (tap twice) so it's hard to do by accident.
+    const rm = el("button", "btn small danger remove", "Remove"); rm.type = "button";
     rm.setAttribute("aria-label", "Remove " + feed.title);
-    rm.onclick = () => removeFeed(feed);
-    chip.appendChild(rm);
-    bar.appendChild(chip);
-  });
-  feedsEl.appendChild(bar);
-
-  renderPosts();
-}
-
-function renderPosts() {
-  let shown;
-  if (view === "saved") {
-    shown = savedPosts.map((s) => ({ ...s, date: new Date(s.date) }));
-    if (!shown.length) {
-      const none = document.createElement("p");
-      none.className = "sub"; none.textContent = "Nothing saved yet. Tap Save on any post to keep it here.";
-      feedsEl.appendChild(none);
-    }
-  } else {
-    // One combined stream, sorted by the Sort menu. Posts with no date go to the bottom.
-    const inView = activeFolder ? loaded.filter((feed) => folderOf(feed.url) === activeFolder) : loaded;
-    const posts = inView.flatMap((feed) => (feed.posts || []).map((p) => ({ ...p, source: feed.title, feedUrl: feed.url })));
-    const time = (p) => (isNaN(p.date) ? null : p.date.getTime());
-    const byDate = (a, b, dir) => {
-      const ta = time(a), tb = time(b);
-      if (ta === null || tb === null) return (ta === null) - (tb === null);
-      return dir * (tb - ta);
+    let armed = null;
+    rm.onclick = () => {
+      if (!armed) { rm.textContent = "Tap again to remove"; armed = setTimeout(() => { armed = null; rm.textContent = "Remove"; }, 4000); return; }
+      clearTimeout(armed); removeFeed(feed);
     };
-    const sort = sortBox.value;
-    if (sort === "oldest") posts.sort((a, b) => byDate(a, b, -1));
-    else if (sort === "source") posts.sort((a, b) => a.source.localeCompare(b.source) || byDate(a, b, 1));
-    else posts.sort((a, b) => byDate(a, b, 1));
-    // Pinned feeds: lift each one's newest post to the top, newest pin first.
-    const tops = inView.filter((feed) => isPinned(feed.url)).map((feed) => {
-      const own = posts.filter((p) => p.source === feed.title);
-      own.sort((a, b) => byDate(a, b, 1));
-      return own[0];
-    }).filter(Boolean);
-    tops.sort((a, b) => byDate(a, b, 1));
-    tops.forEach((p) => { p.pinned = true; });
-    posts.splice(0, posts.length, ...tops, ...posts.filter((p) => !tops.includes(p)));
-    shown = hideReadBox.checked || clearReadNow ? posts.filter((p) => !readLinks.has(p.link)) : posts;
-    if (posts.length && !shown.length) {
-      const done = document.createElement("p");
-      done.className = "sub"; done.textContent = "You're all caught up. Turn off Hide read to see older posts.";
-      feedsEl.appendChild(done);
-    }
-  }
-  const list = document.createElement("div");
-  list.className = "postlist";
-  feedsEl.appendChild(list);
-  shown.forEach((p) => {
-    const a = document.createElement("a");
-    a.className = "post" + (readLinks.has(p.link) ? " read" : ""); a.href = p.link; a.target = "_blank"; a.rel = "noopener";
-    a.dataset.link = p.link;
-    a.addEventListener("click", () => { markRead(p.link); a.classList.add("read"); });
-    if (p.thumb) { const img = document.createElement("img"); img.src = p.thumb; img.alt = ""; img.loading = "lazy"; a.appendChild(img); }
-    else { const ph = document.createElement("div"); ph.className = "noimg"; ph.textContent = (p.source || "?").charAt(0).toUpperCase(); a.appendChild(ph); }
-    const info = document.createElement("div");
-    info.className = "info";
-    const t = document.createElement("div"); t.className = "title"; t.textContent = p.title;
-    const d = document.createElement("div"); d.className = "date";
-    const when = isNaN(p.date) ? "" : p.date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-    d.textContent = (p.pinned ? "Pinned · " : "") + p.source + (when ? " · " + when : "");
-    const pv = document.createElement("div"); pv.className = "preview"; pv.textContent = p.preview || "";
-    info.append(t, d, pv); a.appendChild(info);
-    const sv = document.createElement("button");
-    sv.type = "button";
-    const paint = () => { const on = isSaved(p.link); sv.className = "save" + (on ? " on" : ""); sv.textContent = on ? "Saved" : "Save"; sv.setAttribute("aria-pressed", on); };
-    paint();
-    sv.addEventListener("click", (e) => {
-      e.preventDefault(); e.stopPropagation(); // don't open the post
-      toggleSave(p);
-      if (view === "saved") render(); else paint();
-    });
-    a.appendChild(sv);
-    const sh = document.createElement("button");
-    sh.type = "button"; sh.className = "share"; sh.textContent = "Share";
-    sh.setAttribute("aria-label", "Share " + p.title);
-    sh.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); sharePost(p); });
-    a.appendChild(sh);
-    list.appendChild(a);
+    ctl.append(pick, pin, shf, rm);
+    li.append(ctl);
+    listEl.append(li);
   });
-  watchForRead(list);
 }
 
 // Platforms that don't share feeds. Checked before fetching so the message is clear and fast.
@@ -580,7 +913,7 @@ function noFeedMessage(link) {
 document.getElementById("addForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   let link = document.getElementById("link").value.trim();
-  if (!link) return;
+  if (!link) { setStatus("Paste a link first, then tap Follow.", true); return; }
   if (!/^https?:\/\//i.test(link)) link = "https://" + link;
   const blocked = noFeedMessage(link);
   if (blocked) { setStatus(blocked, true); return; }
@@ -597,9 +930,10 @@ document.getElementById("addForm").addEventListener("submit", async (e) => {
     const saved = loadSaved();
     if (saved.some((f) => f.url === feed.url)) { setStatus("You already follow " + feed.title + "."); return; }
     saveFeeds([{ url: feed.url, title: feed.title }, ...saved]);
+    loadingFirstTime = false;
     showFeed(feed);
     document.getElementById("link").value = "";
-    setStatus("Added " + feed.title + " (" + feed.posts.length + " posts).");
+    setStatus("Now following " + feed.title + ".");
   } catch (err) {
     setStatus(err.message || "Something went wrong.", true);
   } finally {
@@ -659,9 +993,10 @@ const refreshBtn = document.getElementById("refreshBtn");
 const lastEl = document.getElementById("lastRefreshed");
 async function refreshAll() {
   const saved = loadSaved();
-  if (!saved.length) { setStatus("You don't follow any feeds yet. Paste a link above to add one."); return; }
+  if (!saved.length) { loadingFirstTime = false; render(); return; }
   refreshBtn.disabled = true;
-  setStatus("Loading your " + saved.length + " feed" + (saved.length === 1 ? "" : "s") + "...");
+  refreshBtn.setAttribute("aria-busy", "true");
+  setStatus("Loading your " + saved.length + " source" + (saved.length === 1 ? "" : "s") + "...");
   const results = await Promise.all(saved.map(async (f) => {
     try {
       const feed = parseFeed(await getText(f.url));
@@ -674,14 +1009,15 @@ async function refreshAll() {
   }));
   loaded.length = 0;
   loaded.push(...results);
+  loadingFirstTime = false;
   render();
   refreshBtn.disabled = false;
+  refreshBtn.removeAttribute("aria-busy");
   lastEl.textContent = "Last refreshed " + new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   const failed = results.filter((f) => f.error).length;
-  setStatus(failed ? failed + " feed" + (failed === 1 ? "" : "s") + " couldn't load right now." : "");
+  setStatus(failed ? failed + " source" + (failed === 1 ? "" : "s") + " couldn't load right now." : "Up to date.", !!failed);
 }
 refreshBtn.onclick = refreshAll;
-refreshAll();
 
 // Share to a friend. The post rides in the link after the "#", which never gets sent to any server.
 const LIVE_URL = "https://vintor.github.io/feed-hub/";
@@ -721,12 +1057,12 @@ function showShared() {
   box.querySelector(".ssrc").textContent = isPost ? "From " + (s.s || "a feed") : "A feed your friend thinks you'll like";
   const row = box.querySelector(".row");
   if (isPost) {
-    const read = Object.assign(document.createElement("a"), { className: "primary", href: s.l, target: "_blank", rel: "noopener", textContent: "Read it" });
+    const read = Object.assign(document.createElement("a"), { className: "btn primary", href: s.l, target: "_blank", rel: "noopener", textContent: ACTION_LABEL[kindOf(s.l)] || "Read it" });
     row.appendChild(read);
   }
   if (/^https?:\/\//i.test(s.f || "")) {
     const already = loadSaved().some((f) => f.url === s.f);
-    const follow = Object.assign(document.createElement("button"), { type: "button", className: isPost ? "plain" : "primary", textContent: already ? "You follow " + (s.s || "this") : "Follow " + (s.s || "this source") });
+    const follow = Object.assign(document.createElement("button"), { type: "button", className: isPost ? "btn" : "btn primary", textContent: already ? "You follow " + (s.s || "this") : "Follow " + (s.s || "this source") });
     follow.disabled = already;
     follow.onclick = () => {
       document.getElementById("link").value = s.f;
@@ -735,15 +1071,20 @@ function showShared() {
     };
     row.appendChild(follow);
   }
-  const close = Object.assign(document.createElement("button"), { type: "button", className: "plain", textContent: "Close" });
+  const close = Object.assign(document.createElement("button"), { type: "button", className: "btn", textContent: "Close" });
   close.onclick = () => { history.replaceState(null, "", location.pathname + location.search); box.hidden = true; };
   row.appendChild(close);
   box.hidden = false;
-  // Leave Swipe view so the card is visible
-  if (feedsEl.className === "layout-swipe") document.querySelector('.view-btn[data-layout="cards"]').click();
+  if (screen !== "read" || view !== "all") setView("all");
+  window.scrollTo(0, 0);
 }
+
+// Start up
+syncScreens();
+render();
 showShared();
 window.addEventListener("hashchange", showShared);
+refreshAll();
 
 // Home screen app (#36). Only works on the live site, not the local copy.
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
